@@ -183,13 +183,18 @@ export async function runTask(req: TaskRequest, ctx: TaskContext): Promise<AiRes
 
   if (req.task === "plan") {
     const plan = req.plan!;
+    const weakPages = plan.worstPages.filter((p) => p.issues.length);
     const facts = [
       `Site: ${plan.domain} (${plan.pages} pages scanned)`,
       `Average SEO score: ${plan.avgScore ?? "n/a"}/100. Average AI-search readiness: ${plan.avgAiScore ?? "n/a"}/100.`,
-      `Most common issues:\n${plan.issues.map((i) => `- ${i.label} (${i.severity}): ${i.count} pages`).join("\n")}`,
-      `Weakest pages:\n${plan.worstPages.map((p) => `- ${p.url} (score ${p.score ?? "n/a"}): ${p.issues.join("; ")}`).join("\n")}`,
+      plan.issues.length
+        ? `Most common issues:\n${plan.issues.map((i) => `- ${i.label} (${i.severity}): ${i.count} pages`).join("\n")}`
+        : "Most common issues: none. The scan found no problems on any page.",
+      weakPages.length
+        ? `Weakest pages:\n${weakPages.map((p) => `- ${p.url} (score ${p.score ?? "n/a"}): ${p.issues.join("; ")}`).join("\n")}`
+        : "Weakest pages: none have issues.",
       // The targets behind the checks, so advice quotes our numbers instead of inventing its own.
-      `Targets the checks use: titles ${TITLE_MIN}-${TITLE_MAX} characters, meta descriptions ${META_MIN}-${META_MAX} characters, ` +
+      `For reference, the targets the checks use: titles ${TITLE_MIN}-${TITLE_MAX} characters, meta descriptions ${META_MIN}-${META_MAX} characters, ` +
         `at least ${THIN_WORDS} words (${GOOD_WORDS}+ for full marks), images under ${HEAVY_IMAGE_BYTES / 1000} KB, ` +
         `main keyword under ${STUFFING_DENSITY}% of the text, posts updated within ${STALE_MONTHS} months, every page within ${DEEP_CLICKS} clicks of the homepage.`,
     ].join("\n\n");
@@ -200,7 +205,10 @@ ${fence("AUDIT", facts, 4000)}
 Reply with JSON:
 {"summary": "one sentence verdict (you may be lightly witty, never mean)",
  "steps": [5 objects {"title": "imperative, max 8 words", "why": "one sentence tied to the numbers above", "how": "one or two concrete sentences"}]}
-Order steps by impact: critical issues and issues on many pages first.`;
+Order steps by impact: critical issues and issues on many pages first.
+Never claim a problem the audit doesn't list: the targets are for reference, not findings. If the audit lists fewer
+than five issues, fill the remaining steps with growth ideas (new posts, internal links, refreshing top posts) and
+start their "why" with "Optional:".`;
     const { data, ...meta } = await ask("short", prompt, 900, ["summary", "steps"], ctx);
     const steps = (Array.isArray(data.steps) ? data.steps : []).slice(0, 6).map((s: Record<string, unknown>) => ({
       title: cleanLine(s?.title, 120),
