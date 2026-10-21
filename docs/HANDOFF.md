@@ -84,6 +84,7 @@ npm run start
    - `/robots.txt`, `/sitemap.xml` (38 URLs), `/llms.txt` and `/llms-full.txt` return 200. `/checks/not-a-real-check` returns 404.
    - One AI action shows which provider answered. A long job (section rewrite) should say Gemini, and a short one (title & meta) should say Groq.
    - `POST /api/crux` with `{"url":"https://wordpress.org/news/"}` returns real-user metrics.
+   - Rate limits still work, without spending any quota: send 32 quick `POST /api/pagespeed` requests with `{"url":"not-a-url"}`. The first 30 should return 400 (invalid URL) and the rest 429. The limiter counts requests before checking the URL, so Google is never called. The limit clears after a minute.
 
 ## Troubleshooting
 
@@ -117,6 +118,6 @@ npm run start
 | `f41425c` | The action plan no longer invents problems on clean sites |
 | `52ad4f2` | Each tool got its own job; report, guide pages and layout polished |
 | `156f004` | Project docs: Handoff, Project Bible, Portfolio Handoff |
-| (this commit) | Rate limit on `/api/pagespeed` (30 per minute per IP), so every API route now has one |
+| `2506ffb` | Rate limit on `/api/pagespeed` (30 per minute per IP), so every API route that does work now has one |
 
 The old Flask app is kept in [`legacy/crawl-daddy`](../legacy/crawl-daddy) for reference.

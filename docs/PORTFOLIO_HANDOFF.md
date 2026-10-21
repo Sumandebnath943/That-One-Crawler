@@ -42,7 +42,7 @@ _Last updated: 22 October 2026._
 Good for interviews and case-study sections.
 
 - **Serverless-friendly crawling.** The browser orchestrates discovery, crawling (about six pages in flight), link checks and PageSpeed, and calls stateless API routes. This sidesteps serverless time limits without a queue or database.
-- **Safe fetching.** A custom fetcher blocks private and internal network addresses (SSRF protection), re-checks every redirect hop, never follows a redirect off the site, and caps response size and time.
+- **Safe fetching.** A custom fetcher blocks private and internal network addresses (SSRF protection), re-checks every redirect hop, never follows a redirect off the site, and caps response size and time. Every API route that does real work is rate-limited per IP, so nobody can drain the free API quotas or the hosting limits.
 - **Free AI without a database.**
   - Short jobs go to Groq first and long jobs to Gemini, each falling back to the other inside a 70-second budget.
   - A daily allowance per visitor is tracked with an HMAC-signed cookie plus an IP counter.
