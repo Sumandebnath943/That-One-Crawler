@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Breadcrumbs, ContentShell, FaqSection, JsonLd, PageIntro, Section } from "@/components/content/ContentKit";
+import { ArticleLayout, ContentShell, FaqSection, JsonLd, PageIntro, Section } from "@/components/content/ContentKit";
 import type { Faq } from "@/lib/content/guides";
 import { abs, breadcrumbs, faqPage, graph } from "@/lib/content/structured-data";
 
@@ -29,6 +29,15 @@ const FAQS: Faq[] = [
   },
 ];
 
+const BEHAVIOR = [
+  "Visits only when someone runs a scan; there's no background crawling or indexing.",
+  "Fetches about six pages at a time and stops at the page limit the person chose (1,000 at most).",
+  "Reads your robots.txt and sitemap first, and only follows links within your site.",
+  "Checks outgoing links and images with lightweight HEAD requests, and only retries with a tiny GET when a server refuses HEAD.",
+  "Never submits forms, logs in, or fetches private or internal network addresses.",
+  "Results are stored in the scanning person's browser, not on our servers.",
+];
+
 export default function BotPage() {
   const crumbs = [
     { name: "Home", path: "/" },
@@ -47,35 +56,41 @@ export default function BotPage() {
         eyebrow="For site owners"
         title="Meet ThatOneCrawler, the bot behind the audits"
         answer="ThatOneCrawler is the user agent That One Crawler uses to read public pages when someone runs an SEO audit. It only visits when a person starts a scan, fetches a few pages at a time, never logs in or submits forms, and obeys robots.txt rules written for it."
+        crumbs={crumbs}
+      />
+      <ArticleLayout
+        toc={[
+          { id: "user-agent", label: "How it identifies itself" },
+          { id: "behavior", label: "How it behaves" },
+          { id: "block", label: "How to block it" },
+          { id: "faq", label: "FAQ" },
+        ]}
       >
-        <div className="mt-6">
-          <Breadcrumbs items={crumbs} />
-        </div>
-      </PageIntro>
-      <div className="mx-auto max-w-3xl space-y-12 px-4 py-14 sm:px-6">
-        <Section title="How it identifies itself">
+        <Section id="user-agent" title="How it identifies itself">
           <p>Requests carry this user agent:</p>
-          <pre className="overflow-x-auto rounded-xl bg-ink p-4 font-mono text-sm text-paper">
+          <pre className="overflow-x-auto rounded-xl border-2 border-ink bg-sunk p-4 font-mono text-sm text-ink">
             Mozilla/5.0 (compatible; ThatOneCrawler/1.0; +{abs(PATH)})
           </pre>
         </Section>
-        <Section title="How it behaves">
-          <ul className="list-disc space-y-2 pl-6">
-            <li>Visits only when someone runs a scan; there&apos;s no background crawling or indexing.</li>
-            <li>Fetches about six pages at a time and stops at the page limit the person chose (1,000 at most).</li>
-            <li>Reads your robots.txt and sitemap first, and only follows links within your site.</li>
-            <li>Checks outgoing links and images with lightweight HEAD requests where possible.</li>
-            <li>Never submits forms, logs in, or fetches private or internal network addresses.</li>
-            <li>Results are stored in the scanning person&apos;s browser, not on our servers.</li>
+        <Section id="behavior" title="How it behaves">
+          <ul className="space-y-2">
+            {BEHAVIOR.map((line) => (
+              <li key={line} className="flex gap-3 rounded-xl border-2 border-line bg-card px-4 py-3 text-base text-ink">
+                <span aria-hidden className="text-good">
+                  ✓
+                </span>
+                {line}
+              </li>
+            ))}
           </ul>
         </Section>
-        <Section title="How to block or limit it">
+        <Section id="block" title="How to block or limit it">
           <p>Add this to your robots.txt to keep it out entirely:</p>
-          <pre className="overflow-x-auto rounded-xl bg-ink p-4 font-mono text-sm text-paper">{"User-agent: ThatOneCrawler\nDisallow: /"}</pre>
+          <pre className="overflow-x-auto rounded-xl border-2 border-ink bg-sunk p-4 font-mono text-sm text-ink">{"User-agent: ThatOneCrawler\nDisallow: /"}</pre>
           <p>Or disallow just the paths you want skipped. Scans of your site will then note that some URLs were skipped at your request.</p>
         </Section>
         <FaqSection faqs={FAQS} />
-      </div>
+      </ArticleLayout>
     </ContentShell>
   );
 }

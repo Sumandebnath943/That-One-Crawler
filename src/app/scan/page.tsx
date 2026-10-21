@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 
 function Loading() {
   return (
-    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+    <div className="shell py-10">
       <div className="h-32 animate-pulse rounded-2xl border-2 border-line bg-card" />
     </div>
   );

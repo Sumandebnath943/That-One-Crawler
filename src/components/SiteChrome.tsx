@@ -12,10 +12,10 @@ const NAV = [
 export function SiteHeader({ landing = false }: { landing?: boolean }) {
   return (
     <header className="sticky top-0 z-30 border-b-2 border-ink bg-paper/90 backdrop-blur">
-      <div className="mx-auto flex h-16 max-w-6xl items-center gap-3 px-4 sm:px-6">
+      <div className="shell flex h-16 items-center gap-3">
         <Link href="/" className="group flex items-center gap-2" aria-label="That One Crawler home">
           <Mascot className="size-10 transition group-hover:rotate-6" title="That One Crawler logo" />
-          <span className="font-display text-lg font-extrabold tracking-tight sm:text-xl">That One Crawler</span>
+          <span className="font-display text-base font-extrabold tracking-tight whitespace-nowrap min-[400px]:text-lg sm:text-xl">That One Crawler</span>
           <span className="daddy-only -rotate-3 rounded-full border-2 border-ink bg-lime px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-lime-ink uppercase">
             Daddy mode
           </span>
@@ -76,7 +76,7 @@ export function SiteFooter() {
       <div className="group absolute -top-7 right-8 h-7 overflow-hidden sm:right-16" aria-hidden>
         <Mascot className="size-14 translate-y-1 transition-transform duration-300 group-hover:-translate-y-1" />
       </div>
-      <div className="mx-auto grid max-w-6xl gap-8 px-4 py-10 sm:px-6 md:grid-cols-[1.3fr_1fr_1fr_0.8fr]">
+      <div className="shell grid gap-8 py-10 md:grid-cols-[1.3fr_1fr_1fr_0.8fr]">
         <div>
           <p className="font-display text-xl font-extrabold">That One Crawler</p>
           <p className="mt-2 max-w-xs text-sm text-ink-2">
@@ -100,7 +100,7 @@ export function SiteFooter() {
         ))}
       </div>
       <div className="border-t-2 border-dashed border-line">
-        <div className="mx-auto flex max-w-6xl flex-col gap-1 px-4 py-4 text-sm text-ink-2 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+        <div className="shell flex flex-col gap-1 py-4 text-sm text-ink-2 sm:flex-row sm:items-center sm:justify-between">
           <p>
             Made with questionable amounts of caffeine by{" "}
             <a href={AUTHOR.url} rel="author" className="font-bold text-ink underline underline-offset-2 hover:text-ink-2">

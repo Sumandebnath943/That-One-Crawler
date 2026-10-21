@@ -7,6 +7,7 @@ import { ISSUES, SEVERITY_ORDER, type IssueCode, type PageRow } from "@/lib/seo/
 import { verdictFor, type ReportSummary } from "@/lib/seo/report";
 import { urlKey } from "@/lib/seo/url";
 import { Mascot, type Mood } from "../Mascot";
+import { ScoreRing } from "./bits";
 import { COLUMN_GROUPS, COLUMNS, issueWeight, type ColumnGroup } from "./columns";
 
 const PAGE_SIZE = 50;
@@ -47,40 +48,6 @@ function matchesWords(row: PageRow, filter: WordFilter): boolean {
   return row.wordCount >= 900;
 }
 
-function ScoreRing({ score, label, size = "lg" }: { score: number | null; label: string; size?: "lg" | "md" }) {
-  const radius = 42;
-  const circumference = 2 * Math.PI * radius;
-  const value = score ?? 0;
-  const tone = score === null ? "var(--ink-3)" : value >= 80 ? "var(--good)" : value >= 50 ? "var(--warn)" : "var(--crit)";
-  return (
-    <div className={`relative shrink-0 ${size === "lg" ? "size-28" : "size-24"}`}>
-      <svg viewBox="0 0 100 100" className="size-full -rotate-90" aria-hidden>
-        <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--line)" strokeWidth="10" />
-        <circle
-          cx="50"
-          cy="50"
-          r={radius}
-          fill="none"
-          stroke={tone}
-          strokeWidth="10"
-          strokeLinecap="round"
-          strokeDasharray={circumference}
-          strokeDashoffset={circumference * (1 - value / 100)}
-          className="transition-[stroke-dashoffset] duration-700"
-        />
-      </svg>
-      <div className="absolute inset-0 grid place-items-center text-center">
-        <div>
-          <div className={`font-display leading-none font-extrabold tabular-nums ${size === "lg" ? "text-3xl" : "text-2xl"}`}>
-            {score ?? "—"}
-          </div>
-          <div className="text-[10px] font-bold tracking-wider text-ink-3 uppercase">{label}</div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function formatDuration(ms: number): string {
   const seconds = Math.round(ms / 1000);
   if (seconds < 60) return `${seconds}s`;
@@ -119,34 +86,44 @@ export function Verdict({
   const verdict = verdictFor(summary.avgScore);
   const { critical, warning, notice } = summary.severityCounts;
   const mood = moodFor(summary.avgScore);
+  const chips: [string, number, string][] = [
+    ["critical", critical, "bg-crit"],
+    [warning === 1 ? "warning" : "warnings", warning, "bg-warn"],
+    [notice === 1 ? "notice" : "notices", notice, "bg-note"],
+  ];
   return (
-    <div className="flex flex-col gap-5 rounded-2xl border-2 border-ink bg-card p-5 shadow-brutal sm:flex-row sm:items-center">
-      <div className="flex gap-3">
-        <ScoreRing score={summary.avgScore} label="SEO score" />
-        <ScoreRing score={summary.avgAiScore} label="AI ready" size="md" />
+    <section className="grid gap-6 rounded-2xl border-2 border-ink bg-card p-5 shadow-brutal sm:p-6 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-8">
+      <div className="flex justify-center gap-6 sm:gap-8">
+        <ScoreRing score={summary.avgScore} label="SEO score" kind="seo" />
+        <ScoreRing score={summary.avgAiScore} label="AI readiness" kind="ai" />
       </div>
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 text-center md:text-left">
         <p className="text-xs font-bold tracking-wider text-ink-3 uppercase">{running ? "Verdict so far" : "The verdict"}</p>
-        <h2 className="font-display text-3xl font-extrabold tracking-tight text-balance">{verdict.headline}</h2>
-        <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm text-ink-2">
-          <span>
-            <b className="text-ink">{summary.total}</b> pages
+        <h2 className="mt-1 font-display text-3xl leading-tight font-extrabold tracking-tight text-balance sm:text-4xl">{verdict.headline}</h2>
+        <div className="mt-4 flex flex-wrap justify-center gap-2 md:justify-start">
+          <span className="inline-flex items-center gap-1.5 rounded-full border-2 border-ink bg-paper px-3 py-1 text-sm">
+            <b className="tabular-nums">{summary.total}</b> {summary.total === 1 ? "page" : "pages"}
           </span>
-          <span>
-            <b className="text-crit">{critical}</b> critical
-          </span>
-          <span>
-            <b className="text-warn">{warning}</b> warnings
-          </span>
-          <span>
-            <b className="text-note">{notice}</b> notices
-          </span>
-          {method && <span>via {method === "sitemap" ? "sitemap" : "link-following"}</span>}
-          {durationMs !== null && <span>took {formatDuration(durationMs)}</span>}
+          {chips.map(([label, count, dot]) => (
+            <span key={label} className="inline-flex items-center gap-1.5 rounded-full border-2 border-line bg-paper px-3 py-1 text-sm">
+              <span aria-hidden className={`size-2 rounded-full ${count ? dot : "bg-line"}`} />
+              <b className="tabular-nums">{count}</b> {label}
+            </span>
+          ))}
+        </div>
+        <p className="mt-3 text-sm text-ink-3">
+          {[
+            method && `Found via ${method === "sitemap" ? "your sitemap" : "following links"}`,
+            durationMs !== null && `took ${formatDuration(durationMs)}`,
+          ]
+            .filter(Boolean)
+            .join(" · ")}
         </p>
       </div>
-      <Mascot pokeable mood={mood} title={`The crawler looks ${MOOD_WORDS[mood]}`} className="hidden size-24 shrink-0 sm:block" />
-    </div>
+      <div className="hidden shrink-0 lg:block">
+        <Mascot pokeable mood={mood} title={`The crawler looks ${MOOD_WORDS[mood]}`} className="size-24" />
+      </div>
+    </section>
   );
 }
 
@@ -183,8 +160,19 @@ const CARDS: Card[] = [
 ];
 
 const TONE_TEXT: Record<Card["tone"], string> = { crit: "text-crit", warn: "text-warn", note: "text-note" };
+const TONE_BG: Record<Card["tone"], string> = { crit: "bg-crit", warn: "bg-warn", note: "bg-note" };
 
-export function SummaryCards({
+const GROUPS: { tone: Card["tone"]; severity: keyof ReportSummary["severityCounts"]; label: string; hint: string }[] = [
+  { tone: "crit", severity: "critical", label: "Critical", hint: "Fix these first" },
+  { tone: "warn", severity: "warning", label: "Warnings", hint: "Fix these soon" },
+  { tone: "note", severity: "notice", label: "Notices", hint: "Nice to fix" },
+];
+
+/**
+ * The headline problems grouped by severity. Each row shows how many pages have it (and what share
+ * of the site that is); clicking one filters the page list.
+ */
+export function IssueOverview({
   summary,
   active,
   onPick,
@@ -194,30 +182,59 @@ export function SummaryCards({
   onPick: (filter: IssueFilter) => void;
 }) {
   return (
-    <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-      {CARDS.map((card) => {
-        const count = card.count(summary);
-        const isActive = active === card.filter;
+    <section aria-label="Issue overview" className="grid items-start gap-4 md:grid-cols-3">
+      {GROUPS.map((group) => {
+        const total = summary.severityCounts[group.severity];
         return (
-          <li key={card.label}>
-            <button
-              type="button"
-              onClick={() => onPick(isActive ? "" : card.filter)}
-              aria-pressed={isActive}
-              className={`w-full rounded-xl border-2 p-3 text-left transition hover:-translate-y-0.5 ${isActive ? "border-ink bg-lime text-lime-ink shadow-brutal-sm" : "border-ink bg-card"}`}
-            >
-              <span className={`block font-display text-3xl font-extrabold tabular-nums ${isActive ? "" : count ? TONE_TEXT[card.tone] : "text-good"}`}>
-                {count}
+          <div key={group.tone} className="rounded-2xl border-2 border-ink bg-card">
+            <div className="flex items-center justify-between gap-2 border-b-2 border-ink px-4 py-3">
+              <span className="flex items-center gap-2">
+                <span aria-hidden className={`size-3 rounded-full border-2 border-ink ${TONE_BG[group.tone]}`} />
+                <span className="font-display text-lg font-extrabold">{group.label}</span>
               </span>
-              <span className="block text-sm font-semibold">{card.label}</span>
-              <span className={`block text-xs ${isActive ? "" : "text-ink-3"}`}>
-                {summary.total ? `${Math.round((count / summary.total) * 100)}% of pages` : "—"}
+              <span className="text-xs text-ink-3">
+                {total ? `${total} ${total === 1 ? "issue" : "issues"} · ${group.hint.toLowerCase()}` : "None found"}
               </span>
-            </button>
-          </li>
+            </div>
+            <ul className="p-1.5">
+              {CARDS.filter((card) => card.tone === group.tone).map((card) => {
+                const count = card.count(summary);
+                const share = summary.total ? Math.round((count / summary.total) * 100) : 0;
+                const isActive = active === card.filter;
+                return (
+                  <li key={card.label}>
+                    <button
+                      type="button"
+                      onClick={() => onPick(isActive ? "" : card.filter)}
+                      aria-pressed={isActive}
+                      title={count ? `${count} of ${summary.total} pages (${share}%)` : "No pages"}
+                      className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition ${isActive ? "bg-lime text-lime-ink" : "hover:bg-sunk"}`}
+                    >
+                      <span className="min-w-0 flex-1">
+                        <span className={`block text-sm font-semibold ${count || isActive ? "" : "text-ink-3"}`}>{card.label}</span>
+                        {count > 0 && (
+                          <span className="mt-1 flex items-center gap-2 text-[11px] text-ink-3">
+                            <span className="block h-1.5 flex-1 overflow-hidden rounded-full bg-sunk">
+                              <span className={`block h-full rounded-full ${TONE_BG[card.tone]}`} style={{ width: `${Math.max(4, share)}%` }} />
+                            </span>
+                            {share}%
+                          </span>
+                        )}
+                      </span>
+                      <span
+                        className={`w-10 shrink-0 text-right font-display text-xl font-extrabold tabular-nums ${isActive ? "" : count ? TONE_TEXT[card.tone] : "text-good"}`}
+                      >
+                        {count || "✓"}
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
         );
       })}
-    </ul>
+    </section>
   );
 }
 
@@ -483,12 +500,15 @@ const REPORT_TABS: { id: ReportTab; label: string }[] = [
   { id: "plan", label: "✦ Action plan" },
 ];
 
-/** Summary cards on top, then tabs. Clicking a card jumps to the filtered page list. */
+/** Issue overview on top, then tabs. Clicking an issue jumps to the filtered page list. */
 export function Report({
   summary,
+  counts = {},
   renderTab,
 }: {
   summary: ReportSummary;
+  /** Badges on the tabs, e.g. how many broken links the Links tab holds. */
+  counts?: Partial<Record<ReportTab, { value: number; tone?: "crit" | "warn" }>>;
   renderTab: (tab: ReportTab, issueFilter: IssueFilter, setIssueFilter: (f: IssueFilter) => void) => ReactNode;
 }) {
   const [tab, setTab] = useState<ReportTab>("pages");
@@ -496,7 +516,7 @@ export function Report({
 
   return (
     <div className="space-y-5">
-      <SummaryCards
+      <IssueOverview
         summary={summary}
         active={issueFilter}
         onPick={(filter) => {
@@ -504,21 +524,44 @@ export function Report({
           setTab("pages");
         }}
       />
-      <div>
-        <nav className="flex gap-1 overflow-x-auto" role="tablist" aria-label="Report sections">
-          {REPORT_TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.id}
-              onClick={() => setTab(t.id)}
-              className={`-mb-0.5 shrink-0 rounded-t-xl border-2 border-b-0 px-4 py-2 text-sm font-bold ${tab === t.id ? "border-ink bg-card" : "border-transparent text-ink-2 hover:text-ink"}`}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
+      <div className="space-y-3">
+        <div
+          role="tablist"
+          aria-label="Report sections"
+          className="flex gap-1 overflow-x-auto overflow-y-hidden rounded-2xl border-2 border-ink bg-card p-1 [scrollbar-width:none]"
+        >
+          {REPORT_TABS.map((t) => {
+            const count = counts[t.id];
+            const selected = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => setTab(t.id)}
+                className={`flex shrink-0 items-center gap-2 rounded-xl px-4 py-2 text-sm font-bold transition ${selected ? "bg-ink text-paper" : "text-ink-2 hover:bg-sunk hover:text-ink"}`}
+              >
+                {t.label}
+                {count && (
+                  <span
+                    className={`rounded-full px-1.5 text-xs tabular-nums ${
+                      count.value && count.tone === "crit"
+                        ? "bg-crit text-paper"
+                        : count.value && count.tone === "warn"
+                          ? "bg-warn text-paper"
+                          : selected
+                            ? "bg-paper/20"
+                            : "bg-sunk"
+                    }`}
+                  >
+                    {count.value}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
         {renderTab(tab, issueFilter, setIssueFilter)}
       </div>
     </div>

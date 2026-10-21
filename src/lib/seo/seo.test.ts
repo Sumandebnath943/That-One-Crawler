@@ -224,7 +224,21 @@ describe("site-wide checks", () => {
       "https://example.com/gone",
       "https://dead.example.org/x",
     ]);
-    expect(brokenLinkReport(rows).length).toBe(2);
+    expect(brokenLinkReport(rows).map((t) => t.kind)).toEqual(["internal", "external"]);
+  });
+
+  it("reports broken images alongside broken links", () => {
+    const post = page({ ...perfect, imageSrcs: ["https://cdn.example.com/missing.png", "https://cdn.example.com/fine.png"] });
+    const rows = buildRows([post], {
+      ...ctx(),
+      linkChecks: {
+        "https://cdn.example.com/missing.png": { url: "https://cdn.example.com/missing.png", status: 404, state: "broken" },
+        "https://cdn.example.com/fine.png": { url: "https://cdn.example.com/fine.png", status: 200, state: "ok" },
+      },
+    });
+    expect(brokenLinkReport(rows)).toEqual([
+      { url: "https://cdn.example.com/missing.png", status: 404, kind: "image", linkedFrom: [post.finalUrl] },
+    ]);
   });
 
   it("spots keyword cannibalization but ignores the blog's name on every page", () => {

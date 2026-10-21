@@ -423,9 +423,12 @@ export interface Issue {
   detail?: string;
 }
 
+export type LinkKind = "internal" | "external" | "image";
+
 export interface BrokenOutlink {
   url: string;
   status: number;
+  kind: LinkKind;
 }
 
 export interface PageRow extends CrawledPage {

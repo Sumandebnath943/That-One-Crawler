@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Breadcrumbs, ContentShell, FaqSection, JsonLd, PageIntro, ScanCta } from "@/components/content/ContentKit";
+import { ContentShell, FaqSection, JsonLd, PageIntro, ScanCta } from "@/components/content/ContentKit";
 import { GUIDES, type Faq } from "@/lib/content/guides";
 import { abs, breadcrumbs, CONTENT_UPDATED, faqPage, graph } from "@/lib/content/structured-data";
 import { ISSUES, type IssueCategory } from "@/lib/seo/issues";
@@ -44,6 +44,12 @@ const CATEGORY_ORDER: IssueCategory[] = [
   "Brand rules",
 ];
 
+const categoryId = (category: IssueCategory) => category.toLowerCase().replace(/\s+/g, "-");
+
+const categories = CATEGORY_ORDER.map((category) => ({ category, guides: GUIDES.filter((g) => g.category === category) })).filter(
+  (c) => c.guides.length,
+);
+
 export default function ChecksIndex() {
   const crumbs = [
     { name: "Home", path: "/" },
@@ -76,45 +82,51 @@ export default function ChecksIndex() {
         eyebrow="SEO checks, explained"
         title="Every SEO check we run, explained in plain English"
         answer="That One Crawler runs over 45 checks on every page of your blog, from missing H1s and title length to broken links, keyword cannibalization and AI search readiness. Each guide below explains what a problem means, why it matters and exactly how to fix it, in under five minutes of reading."
-      >
-        <div className="mt-6">
-          <Breadcrumbs items={crumbs} />
+        crumbs={crumbs}
+      />
+      <div className="shell space-y-14 py-12 lg:py-16">
+        <nav aria-label="Categories" className="flex flex-wrap gap-2">
+          {categories.map(({ category, guides }) => (
+            <a
+              key={category}
+              href={`#${categoryId(category)}`}
+              className="rounded-full border-2 border-ink bg-card px-3 py-1 text-sm font-semibold transition hover:-translate-y-0.5 hover:shadow-brutal-sm"
+            >
+              {category} <span className="text-ink-3">{guides.length}</span>
+            </a>
+          ))}
+        </nav>
+        {categories.map(({ category, guides }) => (
+          <section key={category} id={categoryId(category)} aria-labelledby={`${categoryId(category)}-title`} className="scroll-mt-24">
+            <h2 id={`${categoryId(category)}-title`} className="font-display text-2xl font-extrabold tracking-tight sm:text-3xl">
+              {category}
+            </h2>
+            <ul className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {guides.map((g) => (
+                <li key={g.slug}>
+                  <Link
+                    href={`/checks/${g.slug}`}
+                    className="group flex h-full flex-col rounded-2xl border-2 border-ink bg-card p-5 transition hover:-translate-y-1 hover:shadow-brutal"
+                  >
+                    <span className="font-display text-lg leading-snug font-extrabold">{g.metaTitle.split(":")[0]}</span>
+                    <span className="mt-2 flex-1 text-sm text-ink-2">{g.metaDescription}</span>
+                    <span className="mt-4 flex flex-wrap gap-1.5">
+                      {g.codes.map((code) => (
+                        <span key={code} className="rounded-full bg-sunk px-2 py-0.5 text-xs font-semibold text-ink-2">
+                          {ISSUES[code].label}
+                        </span>
+                      ))}
+                    </span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+        <div className="max-w-3xl space-y-14">
+          <ScanCta title="Find out which of these your blog has" />
+          <FaqSection faqs={FAQS} />
         </div>
-      </PageIntro>
-      <div className="mx-auto max-w-5xl space-y-12 px-4 py-14 sm:px-6">
-        {CATEGORY_ORDER.map((category) => {
-          const guides = GUIDES.filter((g) => g.category === category);
-          if (!guides.length) return null;
-          return (
-            <section key={category} aria-labelledby={`cat-${category}`}>
-              <h2 id={`cat-${category}`} className="font-display text-3xl font-extrabold tracking-tight">
-                {category}
-              </h2>
-              <ul className="mt-5 grid gap-4 sm:grid-cols-2">
-                {guides.map((g) => (
-                  <li key={g.slug}>
-                    <Link
-                      href={`/checks/${g.slug}`}
-                      className="block h-full rounded-2xl border-2 border-ink bg-card p-5 shadow-brutal transition hover:-translate-y-1"
-                    >
-                      <span className="block font-display text-xl font-extrabold">{g.title}</span>
-                      <span className="mt-2 block text-sm text-ink-2">{g.metaDescription}</span>
-                      <span className="mt-3 flex flex-wrap gap-1.5">
-                        {g.codes.map((code) => (
-                          <span key={code} className="rounded-full bg-sunk px-2 py-0.5 text-xs font-semibold text-ink-2">
-                            {ISSUES[code].label}
-                          </span>
-                        ))}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
-            </section>
-          );
-        })}
-        <ScanCta title="Find out which of these your blog has" />
-        <FaqSection faqs={FAQS} />
       </div>
     </ContentShell>
   );

@@ -2,14 +2,12 @@
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { postJson } from "@/lib/client/api";
-import { QuotaError, runAi } from "@/lib/client/ai";
 import { fetchPagespeed } from "@/lib/client/crawl";
 import {
   aiReadinessChecks,
   canonicalMatches,
   ISSUES,
   isNoindex,
-  issueText,
   META_MAX,
   META_MIN,
   readingMinutes,
@@ -17,21 +15,19 @@ import {
   TITLE_MIN,
   type PageRow,
 } from "@/lib/seo/issues";
-import type {
-  AiFaq,
-  AiHeadings,
-  AiIntro,
-  AiMeta,
-  AiResult,
-  AiSection,
-  BrandRules,
-  CrawledPage,
-  CruxMetric,
-  CruxResult,
-  FeatureFlags,
-} from "@/lib/seo/types";
+import type { BrandRules, CrawledPage, CruxMetric, CruxResult, FeatureFlags } from "@/lib/seo/types";
 import { displayPath } from "@/lib/seo/url";
-import { AiQuotaBar, CopyButton, DiffView, GuardNotes } from "./ai-ui";
+import {
+  aiRequestBase,
+  AiRunnerError,
+  FaqAiCard,
+  HeadingsAiCard,
+  IntroAiCard,
+  MetaAiCard,
+  SectionAiCard,
+  useAiRunner,
+} from "./ai-cards";
+import { AiQuotaBar } from "./ai-ui";
 import { MetricBadge, ScoreBadge, SEVERITY_STYLES, StatusBadge } from "./bits";
 import { SerpPreview, SocialPreview } from "./Previews";
 
@@ -78,16 +74,6 @@ function lengthHint(length: number, min: number, max: number) {
   return (
     <span className={`font-mono font-bold ${tone}`}>
       {length} chars (aim for {min}–{max})
-    </span>
-  );
-}
-
-/** "Title (52 chars)", turning amber with the target range when an AI suggestion misses it. */
-function LengthLabel({ label, length, min, max }: { label: string; length: number; min: number; max: number }) {
-  const off = length < min || length > max;
-  return (
-    <span className={`text-xs font-bold uppercase ${off ? "text-warn" : "text-ink-3"}`}>
-      {label} ({length} chars{off ? `, aim for ${min}–${max}` : ""})
     </span>
   );
 }
@@ -558,255 +544,27 @@ function TechTab({ row, features, onUpdate }: { row: PageRow; features: FeatureF
 
 // ---------------------------------------------------------------- AI tools
 
-function useAiRunner() {
-  const [state, setState] = useState<{ running: string | null; error: string | null }>({ running: null, error: null });
-  const run = async <T extends object>(name: string, body: Record<string, unknown>): Promise<AiResult<T> | null> => {
-    setState({ running: name, error: null });
-    try {
-      const result = await runAi<T>(body);
-      setState({ running: null, error: null });
-      return result;
-    } catch (err) {
-      const message = err instanceof QuotaError || err instanceof Error ? err.message : "The AI wandered off. Try again.";
-      setState({ running: null, error: message });
-      return null;
-    }
-  };
-  return { ...state, run };
-}
-
-function ToolCard({
-  title,
-  description,
-  action,
-  running,
-  disabled,
-  onRun,
-  children,
-}: {
-  title: string;
-  description: string;
-  action: string;
-  running: boolean;
-  disabled?: boolean;
-  onRun: () => void;
-  children?: ReactNode;
-}) {
-  return (
-    <div className="rounded-xl border-2 border-ink bg-paper p-3">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div className="min-w-0">
-          <h4 className="font-display text-base font-extrabold">{title}</h4>
-          <p className="text-xs text-ink-2">{description}</p>
-        </div>
-        <button
-          type="button"
-          onClick={onRun}
-          disabled={running || disabled}
-          className="shrink-0 rounded-lg border-2 border-ink bg-lime px-3 py-1 text-xs font-bold text-lime-ink transition hover:-translate-y-0.5 disabled:opacity-60"
-        >
-          {running ? "Thinking…" : action}
-        </button>
-      </div>
-      {children && <div className="mt-3 space-y-3">{children}</div>}
-    </div>
-  );
-}
-
-function ResultFooter({ result }: { result: AiResult<object> }) {
-  return (
-    <div className="space-y-2">
-      <GuardNotes guard={result.guard} />
-      <p className="text-[11px] text-ink-3">
-        via {result.provider} · {result.model}
-      </p>
-    </div>
-  );
-}
-
 function AiTab({ row, brand, onUpdate }: { row: PageRow; brand: BrandRules | null; onUpdate: (patch: Partial<CrawledPage>) => void }) {
   const runner = useAiRunner();
-  const h2s = row.headings.filter((h) => h.level === 2).map((h) => h.text);
-  const [heading, setHeading] = useState(h2s[0] ?? "");
   const ai = row.ai ?? {};
-  const base = {
-    url: row.finalUrl,
-    keyword: row.primaryKeyword?.phrase,
-    issues: row.issues.map(issueText),
-    brand: brand ? { brandName: brand.brandName, bannedPhrases: brand.bannedPhrases } : undefined,
-  };
+  const base = aiRequestBase(row, brand);
   const save = (patch: Partial<NonNullable<CrawledPage["ai"]>>) => onUpdate({ ai: { ...ai, ...patch } });
-  const section = heading ? ai.sections?.[heading] : undefined;
 
   return (
     <div className="space-y-3">
       <AiQuotaBar />
-      {runner.error && <p className="rounded-lg bg-crit/10 p-2 text-sm font-semibold text-crit">{runner.error}</p>}
-
-      <ToolCard
-        title="Title & meta description"
-        description="A sharper title and description, plus the three fixes that matter most."
-        action={ai.meta ? "Try again" : "Rewrite"}
-        running={runner.running === "meta"}
-        onRun={async () => {
-          const result = await runner.run<AiMeta>("meta", { ...base, task: "meta" });
-          if (result) save({ meta: result });
-        }}
-      >
-        {ai.meta && (
-          <>
-            <p className="rounded-lg bg-sunk p-2 text-sm italic">{ai.meta.assessment}</p>
-            <div>
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <LengthLabel label="Title" length={ai.meta.title.length} min={TITLE_MIN} max={TITLE_MAX} />
-                <CopyButton text={ai.meta.title} />
-              </div>
-              <DiffView before={row.title} after={ai.meta.title} />
-            </div>
-            <div>
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <LengthLabel label="Meta description" length={ai.meta.metaDescription.length} min={META_MIN} max={META_MAX} />
-                <CopyButton text={ai.meta.metaDescription} />
-              </div>
-              <DiffView before={row.metaDescription} after={ai.meta.metaDescription} />
-            </div>
-            <SerpPreview row={row} altTitle={ai.meta.title} altDescription={ai.meta.metaDescription} />
-            {ai.meta.fixes.length > 0 && (
-              <ol className="list-decimal space-y-1 pl-5 text-sm">
-                {ai.meta.fixes.map((fix) => (
-                  <li key={fix}>{fix}</li>
-                ))}
-              </ol>
-            )}
-            <ResultFooter result={ai.meta} />
-          </>
-        )}
-      </ToolCard>
-
-      <ToolCard
-        title="Quick-answer intro"
-        description="A 40–60 word opening that answers the question outright: what AI Overviews love to quote."
-        action={ai.intro ? "Try again" : "Write it"}
-        running={runner.running === "intro"}
-        onRun={async () => {
-          const result = await runner.run<AiIntro>("intro", { ...base, task: "intro" });
-          if (result) save({ intro: result });
-        }}
-      >
-        {ai.intro && (
-          <>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-bold text-ink-3 uppercase">Suggested intro</span>
-              <CopyButton text={ai.intro.intro} />
-            </div>
-            {ai.intro.original ? <DiffView before={ai.intro.original} after={ai.intro.intro} /> : <p className="text-sm">{ai.intro.intro}</p>}
-            <ResultFooter result={ai.intro} />
-          </>
-        )}
-      </ToolCard>
-
-      <ToolCard
-        title="Better headings"
-        description="Question-style, keyword-aware H2s and H3s that match how people search."
-        action={ai.headings ? "Try again" : "Suggest"}
-        running={runner.running === "headings"}
-        disabled={row.headings.length < 2}
-        onRun={async () => {
-          const result = await runner.run<AiHeadings>("headings", { ...base, task: "headings" });
-          if (result) save({ headings: result });
-        }}
-      >
-        {ai.headings && (
-          <>
-            {ai.headings.items.length ? (
-              <ul className="space-y-2">
-                {ai.headings.items.map((item) => (
-                  <li key={item.before} className="rounded-lg bg-sunk p-2">
-                    <DiffView before={item.before} after={item.after} />
-                    <p className="mt-1 text-xs text-ink-3">{item.why}</p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="text-sm text-good">Your headings are already in good shape.</p>
-            )}
-            <ResultFooter result={ai.headings} />
-          </>
-        )}
-      </ToolCard>
-
-      <ToolCard
-        title="Rewrite a section"
-        description="Pick one H2 section. We rewrite just that part: clearer, scannable, same facts."
-        action={section ? "Try again" : "Rewrite"}
-        running={runner.running === "section"}
-        disabled={!heading}
-        onRun={async () => {
-          const result = await runner.run<AiSection>("section", { ...base, task: "section", heading });
-          if (result) save({ sections: { ...ai.sections, [heading]: result } });
-        }}
-      >
-        {h2s.length ? (
-          <select
-            value={heading}
-            onChange={(e) => setHeading(e.target.value)}
-            aria-label="Section to rewrite"
-            className="w-full rounded-lg border-2 border-ink bg-card px-2 py-1 text-sm"
-          >
-            {h2s.map((h) => (
-              <option key={h} value={h}>
-                {h}
-              </option>
-            ))}
-          </select>
-        ) : (
-          <p className="text-sm text-ink-3">This page has no H2 sections to rewrite.</p>
-        )}
-        {section && (
-          <>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-bold text-ink-3 uppercase">Changes</span>
-              <CopyButton text={section.rewrite} label="Copy rewrite" />
-            </div>
-            <div className="max-h-80 overflow-y-auto rounded-lg border-2 border-line p-2">
-              <DiffView before={section.original} after={section.rewrite} />
-            </div>
-            <ResultFooter result={section} />
-          </>
-        )}
-      </ToolCard>
-
-      <ToolCard
-        title="FAQ generator"
-        description="4–6 questions people search, answered only from your page, plus ready-to-paste FAQ markup."
-        action={ai.faq ? "Try again" : "Generate"}
-        running={runner.running === "faq"}
-        onRun={async () => {
-          const result = await runner.run<AiFaq>("faq", { ...base, task: "faq" });
-          if (result) save({ faq: result });
-        }}
-      >
-        {ai.faq && (
-          <>
-            <dl className="space-y-2">
-              {ai.faq.items.map((item) => (
-                <div key={item.question}>
-                  <dt className="text-sm font-bold">{item.question}</dt>
-                  <dd className="text-sm text-ink-2">{item.answer}</dd>
-                </div>
-              ))}
-            </dl>
-            <div>
-              <div className="mb-1 flex items-center justify-between gap-2">
-                <span className="text-xs font-bold text-ink-3 uppercase">FAQPage JSON-LD</span>
-                <CopyButton text={`<script type="application/ld+json">\n${ai.faq.jsonLd}\n</script>`} label="Copy markup" />
-              </div>
-              <pre className="max-h-48 overflow-auto rounded-lg bg-ink p-2 font-mono text-[11px] text-paper">{ai.faq.jsonLd}</pre>
-            </div>
-            <ResultFooter result={ai.faq} />
-          </>
-        )}
-      </ToolCard>
+      <AiRunnerError runner={runner} />
+      <MetaAiCard row={row} base={base} runner={runner} result={ai.meta} onResult={(meta) => save({ meta })} />
+      <IntroAiCard row={row} base={base} runner={runner} result={ai.intro} onResult={(intro) => save({ intro })} />
+      <HeadingsAiCard row={row} base={base} runner={runner} result={ai.headings} onResult={(headings) => save({ headings })} />
+      <SectionAiCard
+        row={row}
+        base={base}
+        runner={runner}
+        results={ai.sections}
+        onResult={(heading, section) => save({ sections: { ...ai.sections, [heading]: section } })}
+      />
+      <FaqAiCard row={row} base={base} runner={runner} result={ai.faq} onResult={(faq) => save({ faq })} />
     </div>
   );
 }
@@ -859,7 +617,11 @@ export function PageDrawer({
                 <a href={row.finalUrl} target="_blank" rel="noreferrer" className="font-semibold underline underline-offset-2">
                   Open page ↗
                 </a>
-                {row.aiScore !== null && <span className="text-ink-3">AI readiness {row.aiScore}/100</span>}
+                {row.aiScore !== null && (
+                  <span className="rounded-full bg-ai/15 px-2 py-0.5 font-bold text-ai" title="AI search readiness (GEO/AEO)">
+                    AI readiness {row.aiScore}/100
+                  </span>
+                )}
               </div>
             </div>
             <button

@@ -9,7 +9,7 @@ import { burstConfetti, toast } from "@/lib/client/quirks";
 import { downloadHtmlReport } from "@/lib/client/report-html";
 import { useFeatures } from "@/lib/client/use-features";
 import { DEFAULT_PAGE_LIMIT, MAX_PAGES_LIMIT } from "@/lib/limits";
-import { buildRows, summarize } from "@/lib/seo/report";
+import { brokenLinkReport, buildRows, cannibalizationReport, summarize } from "@/lib/seo/report";
 import type { CrawledPage } from "@/lib/seo/types";
 import { prettyUrl, urlKey } from "@/lib/seo/url";
 import { Mascot } from "../Mascot";
@@ -160,6 +160,14 @@ export function ScanWorkspace() {
 
   const rows = useMemo(() => (scan ? buildRows(scan.pages, contextFor(scan)) : []), [scan]);
   const summary = useMemo(() => summarize(rows), [rows]);
+  const tabCounts = useMemo(
+    () => ({
+      pages: { value: rows.length },
+      links: { value: brokenLinkReport(rows).length, tone: "crit" as const },
+      keywords: { value: cannibalizationReport(rows).length, tone: "warn" as const },
+    }),
+    [rows],
+  );
   const openRow = openKey ? rows.find((r) => urlKey(r.finalUrl) === openKey) : undefined;
   const closeDrawer = useCallback(() => setOpenKey(null), []);
   const closeRules = useCallback(() => setRulesOpen(false), []);
@@ -190,7 +198,7 @@ export function ScanWorkspace() {
       );
     }
     return (
-      <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
+      <div className="shell py-10">
         <div className="h-32 animate-pulse rounded-2xl border-2 border-line bg-card" />
       </div>
     );
@@ -203,7 +211,7 @@ export function ScanWorkspace() {
     router.push(buildScanHref(scan.settings.url, scan.settings.maxPages, scan.settings.pagespeed, scan.settings.checkLinks));
 
   return (
-    <div className="mx-auto max-w-6xl space-y-5 px-4 py-8 sm:px-6">
+    <div className="shell space-y-5 py-8">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="text-xs font-bold tracking-wider text-ink-3 uppercase">
@@ -285,6 +293,7 @@ export function ScanWorkspace() {
           />
           <Report
             summary={summary}
+            counts={tabCounts}
             renderTab={(tab, issueFilter, setIssueFilter) => {
               if (tab === "links") return <LinksPanel rows={rows} scan={scan} onOpen={setOpenKey} />;
               if (tab === "keywords") return <KeywordsPanel rows={rows} onOpen={setOpenKey} />;

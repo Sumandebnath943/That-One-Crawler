@@ -24,6 +24,97 @@ const TONE_CLASSES = {
   none: "bg-sunk text-ink-3 border-line",
 };
 
+export function gradeFor(score: number | null): string {
+  if (score === null) return "Not scored";
+  if (score >= 90) return "Excellent";
+  if (score >= 80) return "Good";
+  if (score >= 60) return "Fair";
+  if (score >= 40) return "Weak";
+  return "Poor";
+}
+
+const GRADE_CHIP = {
+  good: "bg-good/15 text-good",
+  ok: "bg-warn/15 text-warn",
+  bad: "bg-crit/12 text-crit",
+  none: "bg-sunk text-ink-3",
+};
+
+/**
+ * A score out of 100 as an outlined ring. Each score has its own color (SEO wears lime, AI readiness
+ * violet) so the two never blur together; the grade chip underneath carries good/bad.
+ */
+export function ScoreRing({
+  score,
+  label,
+  kind = "seo",
+  size = "md",
+}: {
+  score: number | null;
+  label: string;
+  kind?: "seo" | "ai";
+  size?: "sm" | "md" | "lg";
+}) {
+  const radius = 40;
+  const circumference = 2 * Math.PI * radius;
+  const value = Math.max(0, Math.min(100, score ?? 0));
+  const offset = circumference * (1 - value / 100);
+  const color = kind === "ai" ? "var(--ai)" : "var(--lime)";
+  const box = size === "lg" ? "size-36" : size === "sm" ? "size-20" : "size-28";
+  const number = size === "lg" ? "text-4xl" : size === "sm" ? "text-xl" : "text-3xl";
+  return (
+    <figure className="flex flex-col items-center gap-2">
+      <div className={`relative ${box}`}>
+        <svg viewBox="0 0 100 100" className="size-full -rotate-90" aria-hidden>
+          <circle cx="50" cy="50" r={radius} fill="none" stroke="var(--line)" strokeWidth="11" />
+          {score !== null && value > 0 && (
+            <>
+              {/* An ink arc under a slimmer colored arc gives the outlined, sticker-like stroke. */}
+              <circle
+                cx="50"
+                cy="50"
+                r={radius}
+                fill="none"
+                stroke="var(--ink)"
+                strokeWidth="13"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                className="transition-[stroke-dashoffset] duration-700"
+              />
+              <circle
+                cx="50"
+                cy="50"
+                r={radius}
+                fill="none"
+                stroke={color}
+                strokeWidth="8"
+                strokeLinecap="round"
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                className="transition-[stroke-dashoffset] duration-700"
+              />
+            </>
+          )}
+        </svg>
+        <div className="absolute inset-0 grid place-items-center text-center">
+          <div className="leading-none">
+            <span className={`font-display font-extrabold tabular-nums ${number}`}>{score ?? "—"}</span>
+            {score !== null && size !== "sm" && <span className="block text-[10px] font-bold text-ink-3">/ 100</span>}
+          </div>
+        </div>
+      </div>
+      <figcaption className="flex flex-col items-center gap-1 text-center">
+        <span className="flex items-center gap-1.5 text-xs font-bold tracking-wider text-ink-2 uppercase">
+          <span aria-hidden className="size-2.5 rounded-full border border-ink" style={{ background: color }} />
+          {label}
+        </span>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${GRADE_CHIP[scoreTone(score)]}`}>{gradeFor(score)}</span>
+      </figcaption>
+    </figure>
+  );
+}
+
 export function ScoreBadge({ score, size = "md" }: { score: number | null; size?: "sm" | "md" }) {
   return (
     <span

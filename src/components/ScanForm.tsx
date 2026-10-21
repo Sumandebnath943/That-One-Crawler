@@ -49,7 +49,7 @@ export function ScanForm({ compact = false, defaultUrl = "" }: { compact?: boole
   return (
     <form onSubmit={submit} className="w-full" noValidate>
       <div
-        className={`flex flex-col gap-2 rounded-2xl border-2 border-ink bg-card p-2 shadow-brutal sm:flex-row ${compact ? "" : "sm:p-2.5"}`}
+        className={`flex flex-col gap-2 rounded-2xl border-2 border-ink bg-card p-2 shadow-brutal focus-within:ring-3 focus-within:ring-note sm:flex-row ${compact ? "" : "sm:p-2.5"}`}
       >
         <label htmlFor={`${id}-url`} className="sr-only">
           Blog URL

@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { QuotaError, runAi } from "@/lib/client/ai";
 import { contextFor, type ScanState } from "@/lib/client/crawl";
 import { loadScan, previousScans, type ScanSummary } from "@/lib/client/history";
-import { DEEP_CLICKS, ISSUES, issueText, type PageRow } from "@/lib/seo/issues";
+import { DEEP_CLICKS, ISSUES, issueText, type LinkKind, type PageRow } from "@/lib/seo/issues";
 import {
   brokenLinkReport,
   buildRows,
@@ -18,18 +18,26 @@ import { AiQuotaBar, GuardNotes } from "./ai-ui";
 import { StatusBadge } from "./bits";
 
 function Panel({ children }: { children: ReactNode }) {
-  return <div className="space-y-6 rounded-2xl rounded-tl-none border-2 border-ink bg-card p-4 shadow-brutal sm:p-5">{children}</div>;
+  return <div className="space-y-8 rounded-2xl border-2 border-ink bg-card p-4 shadow-brutal sm:p-6">{children}</div>;
 }
 
 function Block({ title, note, children }: { title: string; note?: string; children: ReactNode }) {
   return (
-    <section>
-      <h3 className="font-display text-xl font-extrabold">{title}</h3>
-      {note && <p className="mb-3 text-sm text-ink-2">{note}</p>}
+    <section className="space-y-3">
+      <div>
+        <h3 className="font-display text-xl font-extrabold">{title}</h3>
+        {note && <p className="mt-0.5 text-sm text-ink-2">{note}</p>}
+      </div>
       {children}
     </section>
   );
 }
+
+const KIND_CHIP: Record<LinkKind, string> = {
+  internal: "bg-note/12 text-note",
+  external: "bg-sunk text-ink-2",
+  image: "bg-ai/15 text-ai",
+};
 
 function PageLink({ url, onOpen }: { url: string; onOpen: (key: string) => void }) {
   return (
@@ -66,27 +74,29 @@ export function LinksPanel({ rows, scan, onOpen }: { rows: PageRow[]; scan: Scan
         }
       >
         {broken.length ? (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
+          <div className="overflow-x-auto rounded-xl border-2 border-ink">
+            <table className="w-full min-w-[36rem] text-left text-sm">
               <thead>
-                <tr className="border-b-2 border-ink text-xs text-ink-3 uppercase">
-                  <th className="py-2 pr-3">Status</th>
-                  <th className="py-2 pr-3">Broken URL</th>
-                  <th className="py-2">Linked from</th>
+                <tr className="border-b-2 border-ink bg-sunk text-xs text-ink-2 uppercase">
+                  <th className="w-20 px-3 py-2">Status</th>
+                  <th className="px-3 py-2">Broken URL</th>
+                  <th className="w-60 px-3 py-2">Found on</th>
                 </tr>
               </thead>
               <tbody>
                 {broken.slice(0, 100).map((target) => (
-                  <tr key={target.url} className="border-b border-line align-top">
-                    <td className="py-2 pr-3">
+                  <tr key={target.url} className="border-b border-line align-top last:border-b-0">
+                    <td className="px-3 py-2.5">
                       <StatusBadge status={target.status} />
                     </td>
-                    <td className="max-w-80 py-2 pr-3 font-mono text-xs break-all">
-                      {target.url}
-                      <span className="ml-1 text-ink-3">({target.internal ? "internal" : "external"})</span>
+                    <td className="px-3 py-2.5">
+                      <span className="font-mono text-xs break-all">{target.url}</span>
+                      <span className={`mt-1 block w-fit rounded-full px-2 py-0.5 text-[11px] font-bold capitalize ${KIND_CHIP[target.kind]}`}>
+                        {target.kind}
+                      </span>
                     </td>
-                    <td className="py-2">
-                      <div className="flex max-w-64 flex-col gap-0.5">
+                    <td className="px-3 py-2.5">
+                      <div className="flex max-w-60 flex-col gap-0.5">
                         {target.linkedFrom.slice(0, 4).map((from) => (
                           <PageLink key={from} url={from} onOpen={onOpen} />
                         ))}
@@ -151,6 +161,13 @@ export function LinksPanel({ rows, scan, onOpen }: { rows: PageRow[]; scan: Scan
 
 // ---------------------------------------------------------------- Keywords
 
+const KEYWORD_SPOTS = [
+  ["title", "Title"],
+  ["h1", "H1"],
+  ["meta", "Desc"],
+  ["url", "URL"],
+] as const;
+
 export function KeywordsPanel({ rows, onOpen }: { rows: PageRow[]; onOpen: (key: string) => void }) {
   const groups = useMemo(() => cannibalizationReport(rows), [rows]);
   const withKeywords = rows.filter((r) => r.primaryKeyword).sort((a, b) => (b.primaryKeyword!.score ?? 0) - (a.primaryKeyword!.score ?? 0));
@@ -164,22 +181,34 @@ export function KeywordsPanel({ rows, onOpen }: { rows: PageRow[]; onOpen: (key:
       >
         {groups.length ? (
           <ul className="space-y-3">
-            {groups.map((group) => (
-              <li key={group.keyword} className="rounded-xl border-2 border-line p-3">
-                <p className="mb-2">
-                  <span className="rounded-md bg-lime px-2 py-0.5 font-mono text-sm font-bold text-lime-ink">{group.keyword}</span>{" "}
-                  <span className="text-sm text-ink-3">{group.pages.length} pages</span>
-                </p>
-                <ul className="space-y-1">
-                  {group.pages.map((page) => (
-                    <li key={page.finalUrl} className="flex items-center gap-2">
-                      <span className="w-10 shrink-0 font-mono text-xs text-ink-3">{page.score ?? "—"}</span>
-                      <PageLink url={page.finalUrl} onOpen={onOpen} />
-                    </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
+            {groups.map((group) => {
+              const ranked = [...group.pages].sort((a, b) => (b.score ?? -1) - (a.score ?? -1) || b.inbound - a.inbound);
+              return (
+                <li key={group.keyword} className="overflow-hidden rounded-xl border-2 border-ink">
+                  <p className="flex flex-wrap items-center gap-2 border-b-2 border-ink bg-sunk px-3 py-2">
+                    <span className="rounded-md border-2 border-ink bg-lime px-2 py-0.5 font-mono text-sm font-bold text-lime-ink">{group.keyword}</span>
+                    <span className="text-sm text-ink-2">{group.pages.length} pages competing</span>
+                  </p>
+                  <ul className="divide-y divide-line">
+                    {ranked.map((page, i) => (
+                      <li key={page.finalUrl} className="flex items-center gap-3 px-3 py-2">
+                        <span
+                          className={`w-24 shrink-0 rounded-full px-2 py-0.5 text-center text-[11px] font-extrabold ${i === 0 ? "bg-lime text-lime-ink" : "bg-sunk text-ink-2"}`}
+                        >
+                          {i === 0 ? "★ Keep" : "Merge / re-angle"}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <PageLink url={page.finalUrl} onOpen={onOpen} />
+                        </span>
+                        <span className="shrink-0 font-mono text-xs text-ink-3">
+                          {page.score ?? "—"} · {page.inbound} in
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              );
+            })}
           </ul>
         ) : (
           <Empty>No cannibalization. Every page has its own main keyword.</Empty>
@@ -200,30 +229,37 @@ export function KeywordsPanel({ rows, onOpen }: { rows: PageRow[]; onOpen: (key:
       )}
 
       <Block title="Keyword map" note="Each page's main keyword (phrases that appear on most pages, like your blog's name, are ignored) and where it's used.">
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b-2 border-ink text-xs text-ink-3 uppercase">
-                <th className="py-2 pr-3">Page</th>
-                <th className="py-2 pr-3">Main keyword</th>
-                <th className="py-2 pr-3">Uses</th>
-                <th className="py-2">In title · H1 · desc · URL</th>
+        <div className="max-h-[32rem] overflow-auto rounded-xl border-2 border-ink">
+          <table className="w-full min-w-[36rem] text-left text-sm">
+            <thead className="sticky top-0 z-10">
+              <tr className="border-b-2 border-ink bg-sunk text-xs text-ink-2 uppercase">
+                <th className="px-3 py-2">Page</th>
+                <th className="px-3 py-2">Main keyword</th>
+                <th className="w-14 px-3 py-2 text-right">Uses</th>
+                {KEYWORD_SPOTS.map(([, label]) => (
+                  <th key={label} className="w-14 px-2 py-2 text-center">
+                    {label}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
               {withKeywords.slice(0, 200).map((r) => {
                 const k = r.primaryKeyword!;
-                const tick = (ok: boolean) => <span className={ok ? "text-good" : "text-crit"}>{ok ? "✓" : "✗"}</span>;
                 return (
-                  <tr key={r.finalUrl} className="border-b border-line">
-                    <td className="max-w-56 py-1.5 pr-3">
+                  <tr key={r.finalUrl} className="border-b border-line last:border-b-0">
+                    <td className="max-w-56 px-3 py-1.5">
                       <PageLink url={r.finalUrl} onOpen={onOpen} />
                     </td>
-                    <td className="py-1.5 pr-3 font-mono text-xs">{k.phrase}</td>
-                    <td className="py-1.5 pr-3 font-mono text-xs">{k.count}</td>
-                    <td className="space-x-2 py-1.5 font-mono text-xs">
-                      {tick(k.title)} {tick(k.h1)} {tick(k.meta)} {tick(k.url)}
-                    </td>
+                    <td className="px-3 py-1.5 font-mono text-xs">{k.phrase}</td>
+                    <td className="px-3 py-1.5 text-right font-mono text-xs tabular-nums">{k.count}</td>
+                    {KEYWORD_SPOTS.map(([key, label]) => (
+                      <td key={key} className="px-2 py-1.5 text-center">
+                        <span className={`font-bold ${k[key] ? "text-good" : "text-crit"}`} title={`${label}: ${k[key] ? "yes" : "no"}`}>
+                          {k[key] ? "✓" : "✗"}
+                        </span>
+                      </td>
+                    ))}
                   </tr>
                 );
               })}

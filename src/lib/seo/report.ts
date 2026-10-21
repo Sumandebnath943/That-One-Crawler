@@ -9,6 +9,7 @@ import {
   sortIssues,
   type BrokenOutlink,
   type IssueCode,
+  type LinkKind,
   type PageRow,
   type RowContext,
 } from "./issues";
@@ -88,11 +89,14 @@ export function buildRows(pages: CrawledPage[], ctx: BuildContext = { asOf: Date
     if (content) {
       for (const link of page.outlinksInternal) {
         const target = byKey.get(urlKey(link));
-        if (target && (target.status === 0 || target.status >= 400)) brokenOutlinks.push({ url: link, status: target.status });
-        else if (!target && checks[link]?.state === "broken") brokenOutlinks.push({ url: link, status: checks[link].status });
+        if (target && (target.status === 0 || target.status >= 400)) brokenOutlinks.push({ url: link, status: target.status, kind: "internal" });
+        else if (!target && checks[link]?.state === "broken") brokenOutlinks.push({ url: link, status: checks[link].status, kind: "internal" });
       }
       for (const link of page.outlinksExternal) {
-        if (checks[link]?.state === "broken") brokenOutlinks.push({ url: link, status: checks[link].status });
+        if (checks[link]?.state === "broken") brokenOutlinks.push({ url: link, status: checks[link].status, kind: "external" });
+      }
+      for (const src of page.imageSrcs) {
+        if (checks[src]?.state === "broken") brokenOutlinks.push({ url: src, status: checks[src].status, kind: "image" });
       }
     }
 
@@ -196,11 +200,11 @@ export function summarize(rows: PageRow[]): ReportSummary {
 export interface BrokenTarget {
   url: string;
   status: number;
-  internal: boolean;
+  kind: LinkKind;
   linkedFrom: string[];
 }
 
-/** Every broken link target, with the pages that link to it. */
+/** Every broken link or image, with the pages that use it. */
 export function brokenLinkReport(rows: PageRow[]): BrokenTarget[] {
   const targets = new Map<string, BrokenTarget>();
   for (const row of rows) {
@@ -208,7 +212,7 @@ export function brokenLinkReport(rows: PageRow[]): BrokenTarget[] {
       const entry = targets.get(link.url) ?? {
         url: link.url,
         status: link.status,
-        internal: row.outlinksInternal.includes(link.url),
+        kind: link.kind,
         linkedFrom: [],
       };
       if (!entry.linkedFrom.includes(row.finalUrl)) entry.linkedFrom.push(row.finalUrl);

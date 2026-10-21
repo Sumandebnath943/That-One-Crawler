@@ -2,7 +2,7 @@ import Link from "next/link";
 import { Mascot } from "@/components/Mascot";
 import { ScanForm } from "@/components/ScanForm";
 import type { Faq } from "@/lib/content/guides";
-import { TOOLS } from "@/lib/content/tools";
+import { MODE_LABEL, TOOLS } from "@/lib/content/tools";
 import { HeroMascot } from "./HeroMascot";
 
 const FINDINGS: { tone: "crit" | "warn" | "note"; path: string; text: string }[] = [
@@ -126,7 +126,7 @@ export const LANDING_FAQ: Faq[] = [
 export function Hero() {
   return (
     <section className="dots relative overflow-hidden border-b-2 border-ink">
-      <div className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 sm:px-6 md:grid-cols-[1.25fr_0.75fr] md:py-20">
+      <div className="shell grid items-center gap-10 py-14 md:grid-cols-[1.25fr_0.75fr] md:py-20">
         <div>
           <p className="mb-5 inline-block -rotate-1 rounded-full border-2 border-ink bg-lime px-3 py-1 text-sm font-bold text-lime-ink shadow-brutal-sm">
             Crawl Daddy, reprised ✦ now with fewer excuses
@@ -173,7 +173,7 @@ export function FindingsMarquee() {
 /** Plain answers to "what is this?", written for people and for answer engines alike. */
 export function WhatIsIt() {
   return (
-    <section className="mx-auto max-w-6xl px-4 pt-16 sm:px-6 sm:pt-20" aria-labelledby="what-heading">
+    <section className="shell pt-16 sm:pt-20" aria-labelledby="what-heading">
       <div className="grid gap-10 md:grid-cols-2">
         <div>
           <h2 id="what-heading" className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">
@@ -220,7 +220,7 @@ export function WhatIsIt() {
 
 export function Judged() {
   return (
-    <section id="judged" className="mx-auto max-w-6xl scroll-mt-20 px-4 py-16 sm:px-6 sm:py-20">
+    <section id="judged" className="shell scroll-mt-20 py-16 sm:py-20">
       <div className="mb-10 max-w-2xl">
         <h2 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Things we will absolutely judge</h2>
         <p className="mt-3 text-lg text-ink-2">
@@ -255,22 +255,25 @@ export function Judged() {
 export function FreeTools() {
   return (
     <section id="tools" className="scroll-mt-20 border-y-2 border-ink bg-card">
-      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
-        <h2 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Free SEO tools, all in one crawl</h2>
+      <div className="shell py-16 sm:py-20">
+        <h2 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Four free tools, one job each</h2>
         <p className="mt-3 max-w-2xl text-lg text-ink-2">
-          One scan powers every tool below. Pick the one that matches what you&apos;re worried about, or just run the
-          full audit and get all of them at once.
+          Need one answer fast? Each tool does a single job well. Two check one page in seconds; two crawl your whole
+          site for one kind of problem. Want everything at once? Run the full audit up top.
         </p>
         <ul className="mt-10 grid gap-4 sm:grid-cols-2">
           {TOOLS.map((tool) => (
             <li key={tool.slug}>
               <Link
                 href={`/${tool.slug}`}
-                className="block h-full rounded-2xl border-2 border-ink bg-paper p-5 shadow-brutal transition hover:-translate-y-1"
+                className="group flex h-full flex-col rounded-2xl border-2 border-ink bg-paper p-5 shadow-brutal transition hover:-translate-y-1"
               >
-                <h3 className="font-display text-2xl font-extrabold">{tool.eyebrow}</h3>
-                <p className="mt-2 text-ink-2">{tool.metaDescription}</p>
-                <span className="mt-3 inline-block font-semibold underline underline-offset-4">Open the {tool.eyebrow.replace(/^Free /, "")} →</span>
+                <span className="self-start rounded-full border-2 border-ink bg-card px-2.5 py-0.5 text-xs font-bold">{MODE_LABEL[tool.mode]}</span>
+                <h3 className="mt-3 font-display text-2xl font-extrabold">{tool.eyebrow}</h3>
+                <p className="mt-2 flex-1 text-ink-2">{tool.summary}</p>
+                <span className="mt-4 font-semibold underline underline-offset-4">
+                  {tool.action} <span className="inline-block transition group-hover:translate-x-0.5">→</span>
+                </span>
               </Link>
             </li>
           ))}
@@ -282,7 +285,7 @@ export function FreeTools() {
 
 export function HowItWorks() {
   return (
-    <section className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+    <section className="shell py-16 sm:py-20">
       <h2 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">How the free SEO audit works</h2>
       <ol className="mt-10 grid gap-6 md:grid-cols-3">
         {STEPS.map((step, i) => (
@@ -302,7 +305,7 @@ export function HowItWorks() {
 export function Reviews() {
   return (
     <section className="border-t-2 border-ink bg-card" aria-labelledby="reviews-heading">
-      <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 sm:py-20">
+      <div className="shell py-16 sm:py-20">
         <h2 id="reviews-heading" className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">
           Reviews from the crawled
         </h2>
@@ -329,9 +332,21 @@ export function Reviews() {
 export function Faq() {
   return (
     <section id="faq" className="scroll-mt-20 border-t-2 border-ink">
-      <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 sm:py-20">
-        <h2 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Questions, nervously asked</h2>
-        <div className="mt-8 divide-y-2 divide-ink rounded-2xl border-2 border-ink bg-card shadow-brutal">
+      <div className="shell grid gap-10 py-16 sm:py-20 md:grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] md:gap-14">
+        <div>
+          <h2 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Questions, nervously asked</h2>
+          <p className="mt-4 text-lg text-ink-2">
+            Everything people ask before letting a spider loose on their blog. Still curious?{" "}
+            <Link href="/bot" className="font-semibold text-ink underline underline-offset-2">
+              Meet the bot
+            </Link>
+            .
+          </p>
+          <div className="mt-8 hidden md:block">
+            <Mascot pokeable mood="happy" className="size-28" />
+          </div>
+        </div>
+        <div className="divide-y-2 divide-ink self-start rounded-2xl border-2 border-ink bg-card shadow-brutal">
           {LANDING_FAQ.map((item) => (
             <details key={item.q} className="group px-5 py-4">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-4">

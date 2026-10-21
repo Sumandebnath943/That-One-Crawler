@@ -18,6 +18,8 @@
   --warn: #9a5b00;
   --note: #2c5bc9;
   --good: #1b7a39;
+  /* Identity color for the AI-readiness score (the SEO score wears lime). */
+  --ai: #7148e8;
   --shadow: #1a1712;
   color-scheme: light;
 }
@@ -36,6 +38,7 @@
   --warn: #f2b54a;
   --note: #8eaeff;
   --good: #63d68e;
+  --ai: #b49bff;
   --shadow: #000000;
   color-scheme: dark;
 }
@@ -54,12 +57,24 @@
   --color-warn: var(--warn);
   --color-note: var(--note);
   --color-good: var(--good);
+  --color-ai: var(--ai);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-bricolage);
   --shadow-brutal: 4px 4px 0 0 var(--shadow);
   --shadow-brutal-sm: 2px 2px 0 0 var(--shadow);
   --shadow-brutal-lg: 6px 6px 0 0 var(--shadow);
+}
+
+/* The one page container: header, footer and every section share its edges, so everything lines up. */
+@utility shell {
+  margin-inline: auto;
+  width: 100%;
+  max-width: 72rem;
+  padding-inline: 1rem;
+  @media (width >= 40rem) {
+    padding-inline: 1.5rem;
+  }
 }
 
 html {
@@ -76,9 +91,12 @@ body {
   color: var(--lime-ink);
 }
 
-:focus-visible {
-  outline: 3px solid var(--note);
-  outline-offset: 2px;
+/* In the base layer so a component can move the ring (e.g. onto a whole input group). */
+@layer base {
+  :focus-visible {
+    outline: 3px solid var(--note);
+    outline-offset: 2px;
+  }
 }
 
 .dots {
