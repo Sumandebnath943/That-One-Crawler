@@ -1,0 +1,2333 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Crawl Daddy</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #eef3fb;
+      --surface: rgba(255, 255, 255, 0.58);
+      --surface2: rgba(255, 255, 255, 0.42);
+      --border: rgba(255, 255, 255, 0.68);
+      --accent: #1677ff;
+      --accent-hover: #0f63da;
+      --success: #179b5c;
+      --warning: #d18a16;
+      --danger: #d34b61;
+      --text: #142133;
+      --text-muted: #576a82;
+      --text-dim: #7d8ea5;
+      --shadow-lg: 0 28px 80px rgba(76, 104, 140, 0.18);
+      --shadow-md: 0 18px 42px rgba(76, 104, 140, 0.14);
+      --shadow-sm: 0 10px 24px rgba(76, 104, 140, 0.08);
+    }
+
+    html {
+      color-scheme: light;
+    }
+
+    body {
+      background:
+        radial-gradient(circle at top left, rgba(156, 214, 255, 0.82), transparent 30%),
+        radial-gradient(circle at top right, rgba(255, 255, 255, 0.95), transparent 25%),
+        linear-gradient(180deg, #f6f9ff 0%, #eef3fb 36%, #dde7f5 100%);
+      color: var(--text);
+      font-family: "SF Pro Display", "SF Pro Text", -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow-x: hidden;
+    }
+
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      width: 32rem;
+      height: 32rem;
+      border-radius: 999px;
+      filter: blur(20px);
+      opacity: 0.65;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    body::before {
+      top: -8rem;
+      left: -6rem;
+      background: radial-gradient(circle, rgba(110, 199, 255, 0.62), rgba(110, 199, 255, 0.02) 68%);
+    }
+
+    body::after {
+      right: -10rem;
+      bottom: -10rem;
+      background: radial-gradient(circle, rgba(255, 255, 255, 0.92), rgba(188, 205, 232, 0.08) 70%);
+    }
+
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      margin: 1.1rem 1.1rem 0;
+      background: rgba(255, 255, 255, 0.42);
+      border: 1px solid var(--border);
+      border-radius: 1.5rem;
+      box-shadow: var(--shadow-sm);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      padding: 1rem 1.2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .logo {
+      width: 58px;
+      height: 58px;
+      position: relative;
+      isolation: isolate;
+      background:
+        radial-gradient(circle at 28% 24%, rgba(255,255,255,0.92), rgba(255,255,255,0.16) 38%, transparent 39%),
+        linear-gradient(145deg, #91e5ff 0%, #59a6ff 46%, #4d72ff 100%);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      border: 1px solid rgba(255, 255, 255, 0.78);
+      box-shadow:
+        inset 0 1px 1px rgba(255,255,255,0.76),
+        0 18px 32px rgba(77, 109, 168, 0.22),
+        0 0 0 1px rgba(255,255,255,0.16);
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .logo::before {
+      content: "";
+      position: absolute;
+      inset: 6px;
+      border-radius: 15px;
+      background: linear-gradient(180deg, rgba(255,255,255,0.22), rgba(255,255,255,0.02));
+      z-index: 0;
+    }
+
+    .logo::after {
+      content: "";
+      position: absolute;
+      width: 16px;
+      height: 16px;
+      right: 9px;
+      top: 9px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.24);
+      filter: blur(1px);
+      z-index: 0;
+    }
+
+    .logo svg {
+      position: relative;
+      z-index: 1;
+    }
+
+    .logo:hover {
+      transform: translateY(-1px);
+      box-shadow:
+        inset 0 1px 1px rgba(255,255,255,0.76),
+        0 22px 36px rgba(77, 109, 168, 0.26),
+        0 0 0 1px rgba(255,255,255,0.18);
+    }
+
+    header h1 {
+      font-size: 1.42rem;
+      font-weight: 700;
+      letter-spacing: -0.04em;
+      color: var(--text);
+    }
+
+    .header-controls {
+      margin-left: auto;
+      display: flex;
+      align-items: center;
+      gap: 0.7rem;
+    }
+
+    .header-tag {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      background: rgba(255,255,255,0.36);
+      border: 1px solid rgba(255,255,255,0.72);
+      padding: 0.45rem 0.9rem;
+      border-radius: 999px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.72);
+    }
+
+    .theme-toggle {
+      border: 1px solid rgba(255,255,255,0.78);
+      background: rgba(255,255,255,0.4);
+      color: var(--text);
+      padding: 0.5rem 0.9rem;
+      border-radius: 999px;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.72);
+      backdrop-filter: blur(18px) saturate(180%);
+      -webkit-backdrop-filter: blur(18px) saturate(180%);
+      transition: transform 0.2s, background 0.2s, border-color 0.2s, color 0.2s;
+    }
+
+    .theme-toggle:hover {
+      transform: translateY(-1px);
+      background: rgba(255,255,255,0.58);
+    }
+
+    main {
+      position: relative;
+      z-index: 1;
+      flex: 1;
+      padding: 2rem 1.25rem 2.75rem;
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+    }
+
+    .hero-shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1.2fr) minmax(380px, 0.9fr);
+      gap: 1.35rem;
+      align-items: stretch;
+      margin: 1.25rem 0 2rem;
+    }
+
+    .hero-copy,
+    .scan-card {
+      position: relative;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.76), rgba(255,255,255,0.38)),
+        linear-gradient(145deg, rgba(255,255,255,0.24), rgba(255,255,255,0.1));
+      border: 1px solid rgba(255,255,255,0.84);
+      border-radius: 2rem;
+      box-shadow: var(--shadow-lg), inset 0 1px 0 rgba(255,255,255,0.8);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      overflow: hidden;
+    }
+
+    .hero-copy::after,
+    .scan-card::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(125deg, rgba(255,255,255,0.62), transparent 36%, rgba(255,255,255,0.16) 58%, transparent 78%);
+      pointer-events: none;
+    }
+
+    .hero-copy {
+      padding: 2rem 2rem 2.2rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 28rem;
+    }
+
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      width: fit-content;
+      padding: 0.45rem 0.8rem;
+      margin-bottom: 1rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.48);
+      border: 1px solid rgba(255,255,255,0.84);
+      color: var(--text-muted);
+      font-size: 0.82rem;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.86);
+    }
+
+    .hero-copy h2 {
+      font-size: clamp(2.3rem, 4vw, 4.4rem);
+      line-height: 0.95;
+      letter-spacing: -0.08em;
+      max-width: 10ch;
+      margin-bottom: 1rem;
+    }
+
+    .hero-copy p {
+      max-width: 36rem;
+      font-size: 1rem;
+      line-height: 1.65;
+      color: var(--text-muted);
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0.9rem;
+      margin-top: 2rem;
+    }
+
+    .hero-stat {
+      padding: 1rem 1rem 1.1rem;
+      border-radius: 1.25rem;
+      background: rgba(255,255,255,0.38);
+      border: 1px solid rgba(255,255,255,0.74);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.8);
+    }
+
+    .hero-stat strong {
+      display: block;
+      font-size: 1.2rem;
+      letter-spacing: -0.05em;
+      margin-bottom: 0.3rem;
+    }
+
+    .hero-stat span {
+      color: var(--text-dim);
+      font-size: 0.82rem;
+      line-height: 1.4;
+    }
+
+    .scan-card {
+      padding: 1.7rem;
+      align-self: stretch;
+      margin-bottom: 2rem;
+    }
+
+    .scan-card .glass-caption {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.42rem 0.72rem;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.45);
+      border: 1px solid rgba(255,255,255,0.82);
+      color: var(--text-muted);
+      font-size: 0.78rem;
+      margin-bottom: 1rem;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.85);
+    }
+
+    .scan-card h2 {
+      font-size: 1.7rem;
+      font-weight: 700;
+      letter-spacing: -0.05em;
+      color: var(--text);
+      text-transform: none;
+      margin-bottom: 0.55rem;
+    }
+
+    .scan-subcopy {
+      color: var(--text-muted);
+      line-height: 1.6;
+      margin-bottom: 1.3rem;
+      max-width: 34rem;
+    }
+
+    .input-row {
+      display: flex;
+      gap: 0.75rem;
+      flex-direction: column;
+    }
+
+    .input-row input[type="url"] {
+      flex: 1;
+      min-width: 280px;
+      padding: 1rem 1.15rem;
+      background: rgba(255,255,255,0.42);
+      border: 1px solid rgba(255,255,255,0.85);
+      border-radius: 1.15rem;
+      color: var(--text);
+      font-size: 1rem;
+      outline: none;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.84);
+      transition: border-color 0.2s, box-shadow 0.2s, background 0.2s;
+    }
+
+    .input-row input[type="url"]:focus {
+      border-color: var(--accent);
+      background: rgba(255,255,255,0.7);
+      box-shadow: 0 0 0 4px rgba(22, 119, 255, 0.14), inset 0 1px 0 rgba(255,255,255,0.88);
+    }
+
+    .input-row input[type="url"]::placeholder { color: var(--text-dim); }
+
+    .scan-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.85rem;
+      flex-wrap: wrap;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.95rem 1.4rem;
+      border: none;
+      border-radius: 1rem;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, filter 0.2s, opacity 0.2s, transform 0.2s, box-shadow 0.2s;
+      white-space: nowrap;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.82), rgba(255,255,255,0.12)),
+        linear-gradient(135deg, #7ed0ff 0%, #4ea8ff 42%, var(--accent) 100%);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.38);
+      box-shadow:
+        0 16px 32px rgba(22, 119, 255, 0.28),
+        0 0 0 1px rgba(22, 119, 255, 0.12),
+        inset 0 1px 0 rgba(255,255,255,0.52);
+    }
+    .btn-primary:hover {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.88), rgba(255,255,255,0.16)),
+        linear-gradient(135deg, #8bd8ff 0%, #62b5ff 42%, var(--accent-hover) 100%);
+      transform: translateY(-2px);
+      box-shadow:
+        0 20px 38px rgba(22, 119, 255, 0.34),
+        0 0 0 6px rgba(22, 119, 255, 0.12),
+        inset 0 1px 0 rgba(255,255,255,0.64);
+    }
+    .btn-primary:focus-visible {
+      outline: none;
+      box-shadow:
+        0 18px 34px rgba(22, 119, 255, 0.3),
+        0 0 0 6px rgba(22, 119, 255, 0.16),
+        inset 0 1px 0 rgba(255,255,255,0.58);
+    }
+    .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: 0 10px 20px rgba(22, 119, 255, 0.16); }
+
+    .btn-success {
+      background: linear-gradient(180deg, rgba(255,255,255,0.58), rgba(255,255,255,0.12)), linear-gradient(135deg, #58d6a0, var(--success));
+      color: white;
+      box-shadow: 0 12px 24px rgba(23, 155, 92, 0.18), inset 0 1px 0 rgba(255,255,255,0.52);
+    }
+    .btn-success:hover { filter: brightness(1.1); }
+
+    .scan-note {
+      color: var(--text-dim);
+      font-size: 0.8rem;
+      line-height: 1.5;
+      max-width: 18rem;
+    }
+
+    html[data-theme="dark"] {
+      color-scheme: dark;
+      --bg: #0d1524;
+      --surface: rgba(17, 24, 39, 0.68);
+      --surface2: rgba(15, 23, 42, 0.78);
+      --border: rgba(148, 163, 184, 0.18);
+      --accent: #69b2ff;
+      --accent-hover: #8cc4ff;
+      --success: #4fd39a;
+      --warning: #f0b44c;
+      --danger: #ff7a8f;
+      --text: #e5eefb;
+      --text-muted: #a7b7cf;
+      --text-dim: #7f92b0;
+      --shadow-lg: 0 30px 80px rgba(2, 6, 23, 0.5);
+      --shadow-md: 0 18px 42px rgba(2, 6, 23, 0.38);
+      --shadow-sm: 0 10px 24px rgba(2, 6, 23, 0.3);
+    }
+
+    html[data-theme="dark"] body {
+      background:
+        radial-gradient(circle at top left, rgba(55, 114, 255, 0.28), transparent 30%),
+        radial-gradient(circle at top right, rgba(16, 185, 129, 0.12), transparent 24%),
+        linear-gradient(180deg, #07111f 0%, #0d1524 40%, #111c31 100%);
+    }
+
+    html[data-theme="dark"] body::before {
+      background: radial-gradient(circle, rgba(86, 160, 255, 0.28), rgba(86, 160, 255, 0.01) 70%);
+    }
+
+    html[data-theme="dark"] body::after {
+      background: radial-gradient(circle, rgba(47, 72, 121, 0.42), rgba(10, 16, 29, 0.04) 70%);
+    }
+
+    html[data-theme="dark"] header,
+    html[data-theme="dark"] .hero-copy,
+    html[data-theme="dark"] .scan-card,
+    html[data-theme="dark"] .hero-stat,
+    html[data-theme="dark"] .scan-card .glass-caption,
+    html[data-theme="dark"] .header-tag,
+    html[data-theme="dark"] .theme-toggle,
+    html[data-theme="dark"] .stat-card,
+    html[data-theme="dark"] thead,
+    html[data-theme="dark"] .busy-panel {
+      background: rgba(11, 18, 32, 0.72);
+      border-color: rgba(148, 163, 184, 0.16);
+      box-shadow: var(--shadow-md), inset 0 1px 0 rgba(255,255,255,0.04);
+    }
+
+    html[data-theme="dark"] .hero-copy,
+    html[data-theme="dark"] .scan-card {
+      background:
+        linear-gradient(180deg, rgba(18, 28, 48, 0.92), rgba(11, 18, 32, 0.82)),
+        linear-gradient(145deg, rgba(62, 100, 196, 0.12), rgba(11, 18, 32, 0.02));
+    }
+
+    html[data-theme="dark"] .hero-copy::after,
+    html[data-theme="dark"] .scan-card::after {
+      background: linear-gradient(125deg, rgba(255,255,255,0.08), transparent 36%, rgba(105,178,255,0.08) 58%, transparent 82%);
+    }
+
+    html[data-theme="dark"] .hero-eyebrow,
+    html[data-theme="dark"] .filter-row input,
+    html[data-theme="dark"] .filter-row select,
+    html[data-theme="dark"] .input-row input[type="url"],
+    html[data-theme="dark"] .table-wrap,
+    html[data-theme="dark"] .col-toggle-btn {
+      background: rgba(15, 23, 42, 0.88);
+      border-color: rgba(148, 163, 184, 0.16);
+      color: var(--text);
+      box-shadow: none;
+    }
+
+    html[data-theme="dark"] .btn-primary {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.14), rgba(255,255,255,0.03)),
+        linear-gradient(135deg, #73d5ff 0%, #4ca9ff 38%, #5e7fff 100%);
+      border-color: rgba(147, 197, 253, 0.32);
+      box-shadow:
+        0 16px 34px rgba(34, 99, 255, 0.34),
+        0 0 0 1px rgba(105, 178, 255, 0.18),
+        inset 0 1px 0 rgba(255,255,255,0.18);
+    }
+
+    html[data-theme="dark"] .btn-primary:hover,
+    html[data-theme="dark"] .btn-primary:focus-visible {
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.05)),
+        linear-gradient(135deg, #89deff 0%, #61b8ff 38%, #7391ff 100%);
+      box-shadow:
+        0 22px 42px rgba(34, 99, 255, 0.42),
+        0 0 0 6px rgba(105, 178, 255, 0.18),
+        inset 0 1px 0 rgba(255,255,255,0.22);
+    }
+
+    html[data-theme="dark"] .input-row input[type="url"]:focus,
+    html[data-theme="dark"] .filter-row input:focus,
+    html[data-theme="dark"] .filter-row select:focus {
+      background: rgba(20, 31, 54, 0.96);
+      border-color: var(--accent);
+    }
+
+    html[data-theme="dark"] .theme-toggle:hover,
+    html[data-theme="dark"] .col-toggle-btn:hover {
+      background: rgba(20, 31, 54, 0.96);
+      border-color: rgba(105, 178, 255, 0.45);
+    }
+
+    html[data-theme="dark"] .col-toggle-btn.active,
+    html[data-theme="dark"] .badge-blue {
+      background: rgba(105, 178, 255, 0.16);
+      color: #9ed0ff;
+      border-color: rgba(105, 178, 255, 0.34);
+    }
+
+    html[data-theme="dark"] .badge-green {
+      background: rgba(79, 211, 154, 0.14);
+      color: #8ce6bb;
+      border-color: rgba(79, 211, 154, 0.28);
+    }
+
+    html[data-theme="dark"] .badge-yellow {
+      background: rgba(240, 180, 76, 0.14);
+      color: #ffd485;
+      border-color: rgba(240, 180, 76, 0.28);
+    }
+
+    html[data-theme="dark"] .logo {
+      background:
+        radial-gradient(circle at 28% 24%, rgba(255,255,255,0.3), rgba(255,255,255,0.06) 38%, transparent 39%),
+        linear-gradient(145deg, #19366b 0%, #214f92 42%, #3a6fff 100%);
+      border-color: rgba(147, 197, 253, 0.18);
+      box-shadow:
+        inset 0 1px 1px rgba(255,255,255,0.12),
+        0 18px 32px rgba(2, 6, 23, 0.34),
+        0 0 0 1px rgba(105, 178, 255, 0.12);
+    }
+
+    @media (max-width: 980px) {
+      header {
+        flex-wrap: wrap;
+      }
+
+      .header-controls {
+        width: 100%;
+        margin-left: 0;
+        justify-content: space-between;
+      }
+
+      .hero-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .hero-copy {
+        min-height: auto;
+      }
+
+      .hero-copy h2 {
+        max-width: none;
+      }
+
+      .hero-stats {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* ---- Progress Bar ---- */
+    .progress-container {
+      margin-top: 1.2rem;
+      display: none;
+    }
+    .progress-container.visible { display: block; }
+    .progress-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 0.5rem;
+    }
+    .progress-label {
+      font-size: 0.82rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+    .progress-count {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-family: monospace;
+    }
+    .progress-track {
+      height: 6px;
+      background: var(--border);
+      border-radius: 4px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent) 0%, #a371f7 100%);
+      border-radius: 4px;
+      width: 0%;
+      transition: width 0.35s ease;
+    }
+    .progress-fill.indeterminate {
+      width: 40%;
+      animation: indeterminate 1.4s ease-in-out infinite;
+    }
+    @keyframes indeterminate {
+      0%   { transform: translateX(-100%); width: 50%; }
+      50%  { transform: translateX(60%);  width: 60%; }
+      100% { transform: translateX(200%); width: 40%; }
+    }
+    .progress-url {
+      margin-top: 0.45rem;
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 100%;
+      font-family: monospace;
+      opacity: 0.75;
+    }
+
+    /* ---- Column Group Toggles ---- */
+    .col-toggles {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+      align-items: center;
+    }
+    .col-toggles-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-right: 0.25rem;
+    }
+    .col-toggle-btn {
+      padding: 0.3rem 0.8rem;
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.03em;
+    }
+    .col-toggle-btn:hover { border-color: var(--accent); color: var(--text); }
+    .col-toggle-btn.active {
+      background: rgba(88,166,255,0.12);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+
+    /* ---- Column group hiding via CSS ---- */
+    /* Basic: cols 6,7,8,11,12,13 */
+    #results-table.hide-basic th:is(:nth-child(6),:nth-child(7),:nth-child(8),:nth-child(11),:nth-child(12),:nth-child(13)),
+    #results-table.hide-basic td:is(:nth-child(6),:nth-child(7),:nth-child(8),:nth-child(11),:nth-child(12),:nth-child(13)) { display: none; }
+    /* Technical: cols 4,5,14,19,20,21,24,27,28 */
+    #results-table.hide-technical th:is(:nth-child(4),:nth-child(5),:nth-child(14),:nth-child(19),:nth-child(20),:nth-child(21),:nth-child(24),:nth-child(27),:nth-child(28)),
+    #results-table.hide-technical td:is(:nth-child(4),:nth-child(5),:nth-child(14),:nth-child(19),:nth-child(20),:nth-child(21),:nth-child(24),:nth-child(27),:nth-child(28)) { display: none; }
+    /* Content: cols 9,10,22,23,25,26,29,30 */
+    #results-table.hide-content th:is(:nth-child(9),:nth-child(10),:nth-child(22),:nth-child(23),:nth-child(25),:nth-child(26),:nth-child(29),:nth-child(30)),
+    #results-table.hide-content td:is(:nth-child(9),:nth-child(10),:nth-child(22),:nth-child(23),:nth-child(25),:nth-child(26),:nth-child(29),:nth-child(30)) { display: none; }
+    /* Social: cols 15,16,17,18 */
+    #results-table.hide-social th:is(:nth-child(15),:nth-child(16),:nth-child(17),:nth-child(18)),
+    #results-table.hide-social td:is(:nth-child(15),:nth-child(16),:nth-child(17),:nth-child(18)) { display: none; }
+
+    #results-table.hide-pagespeed th:is(:nth-child(31),:nth-child(32),:nth-child(33),:nth-child(34),:nth-child(35)),
+    #results-table.hide-pagespeed td:is(:nth-child(31),:nth-child(32),:nth-child(33),:nth-child(34),:nth-child(35)) { display: none; }
+
+    /* ---- Low-score row tint ---- */
+    tbody tr.row-low-score {
+      background: rgba(248,81,73,0.045);
+    }
+    tbody tr.row-low-score:hover {
+      background: rgba(248,81,73,0.09);
+    }
+
+    .error-msg {
+      background: rgba(248,81,73,0.08);
+      border: 1px solid rgba(248,81,73,0.3);
+      border-radius: 8px;
+      padding: 0.85rem 1.1rem;
+      color: var(--danger);
+      font-size: 0.88rem;
+      margin-top: 1rem;
+      display: none;
+    }
+    .error-msg.visible { display: block; }
+
+    /* ── Busy-panel (shown when a scan is already running) ── */
+    .busy-panel {
+      background: rgba(88, 166, 255, 0.07);
+      border: 1px solid rgba(88, 166, 255, 0.25);
+      border-radius: 10px;
+      padding: 1.1rem 1.3rem;
+      margin-top: 1rem;
+    }
+    .busy-header {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 600;
+      color: var(--accent);
+      margin-bottom: 0.8rem;
+      font-size: 0.95rem;
+    }
+    .busy-icon { font-size: 1.15rem; }
+    .busy-bar-wrap {
+      height: 6px;
+      background: rgba(255,255,255,0.08);
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 0.65rem;
+    }
+    .busy-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--accent), #79c0ff);
+      border-radius: 3px;
+      transition: width 0.6s ease;
+    }
+    .busy-stats {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.83rem;
+      color: var(--muted);
+      margin-bottom: 0.35rem;
+    }
+    #busy-eta { color: #79c0ff; font-weight: 500; }
+    .busy-sub {
+      font-size: 0.75rem;
+      color: var(--muted);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 0.5rem;
+    }
+    .busy-note {
+      font-size: 0.75rem;
+      color: rgba(255,255,255,0.3);
+      font-style: italic;
+    }
+
+    #results-section { display: none; }
+    #results-section.visible { display: block; }
+
+    /* ---- Stat Cards ---- */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.9rem;
+      margin-bottom: 1.5rem;
+    }
+    @media (max-width: 900px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    }
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.1rem 0.85rem;
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      transition: border-color 0.15s;
+      position: relative;
+      overflow: hidden;
+    }
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--card-accent, var(--border));
+      border-radius: 10px 10px 0 0;
+    }
+    .stat-card:hover { border-color: var(--accent); }
+    .stat-icon {
+      font-size: 1.1rem;
+      margin-bottom: 0.1rem;
+      opacity: 0.85;
+    }
+    .stat-value {
+      font-size: 1.85rem;
+      font-weight: 800;
+      font-family: monospace;
+      line-height: 1;
+      color: var(--text);
+    }
+    .stat-label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-top: 0.15rem;
+    }
+    .stat-pct {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 0.2rem;
+    }
+    .stat-pct span {
+      display: inline-block;
+      background: rgba(255,255,255,0.06);
+      border-radius: 4px;
+      padding: 0.1rem 0.45rem;
+      font-weight: 600;
+    }
+    .stat-card.accent-blue  { --card-accent: var(--accent); }
+    .stat-card.accent-green { --card-accent: var(--success); }
+    .stat-card.accent-red   { --card-accent: var(--danger); }
+    .stat-card.accent-yellow{ --card-accent: var(--warning); }
+    .stat-card.accent-purple{ --card-accent: #a371f7; }
+    .stat-card.accent-teal  { --card-accent: #39d353; }
+    .stat-value.danger  { color: var(--danger); }
+    .stat-value.warning { color: var(--warning); }
+    .stat-value.success { color: var(--success); }
+
+    .results-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 1rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .results-meta {
+      display: flex;
+      gap: 0.6rem;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      padding: 0.25rem 0.7rem;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+    }
+    .badge-blue { background: rgba(88,166,255,0.12); color: var(--accent); border: 1px solid rgba(88,166,255,0.25); }
+    .badge-green { background: rgba(63,185,80,0.12); color: var(--success); border: 1px solid rgba(63,185,80,0.25); }
+    .badge-yellow { background: rgba(210,153,34,0.12); color: var(--warning); border: 1px solid rgba(210,153,34,0.25); }
+
+    .filter-row {
+      display: flex;
+      gap: 0.65rem;
+      flex-wrap: wrap;
+      margin-bottom: 1rem;
+    }
+
+    .filter-row input, .filter-row select {
+      padding: 0.55rem 0.9rem;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-size: 0.82rem;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .filter-row input { flex: 1; min-width: 160px; }
+    .filter-row input:focus, .filter-row select:focus { border-color: var(--accent); }
+    .filter-row input::placeholder { color: var(--text-dim); }
+    .filter-row select { cursor: pointer; background: var(--bg); }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) var(--surface2);
+    }
+
+    .table-wrap::-webkit-scrollbar {
+      height: 8px;
+    }
+    .table-wrap::-webkit-scrollbar-track {
+      background: var(--surface2);
+      border-radius: 0 0 10px 10px;
+    }
+    .table-wrap::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 4px;
+    }
+    .table-wrap::-webkit-scrollbar-thumb:hover {
+      background: var(--text-dim);
+    }
+
+    table {
+      min-width: 1800px;
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+
+    thead {
+      background: var(--surface2);
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+
+    th {
+      padding: 0.8rem 0.9rem;
+      text-align: left;
+      font-weight: 600;
+      color: var(--text-muted);
+      white-space: nowrap;
+      cursor: pointer;
+      user-select: none;
+      border-bottom: 1px solid var(--border);
+      transition: color 0.15s;
+    }
+    th:hover { color: var(--accent); }
+    th .si { display: inline-block; margin-left: 3px; opacity: 0.4; font-size: 0.68rem; }
+    th.sort-asc .si::after { content: '▲'; opacity: 1; color: var(--accent); }
+    th.sort-desc .si::after { content: '▼'; opacity: 1; color: var(--accent); }
+    th:not(.sort-asc):not(.sort-desc) .si::after { content: '⇅'; }
+    th.no-sort { cursor: default; }
+    th.no-sort:hover { color: var(--text-muted); }
+
+    th { min-width: 120px; }
+    th.col-xs  { min-width: 80px; }
+    th.col-sm  { min-width: 100px; }
+    th.col-md  { min-width: 140px; }
+    th.col-lg  { min-width: 180px; }
+    th.col-xl  { min-width: 220px; }
+    th.col-url { min-width: 200px; }
+
+    .status-badge {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      font-family: monospace;
+    }
+    .status-2xx { background: rgba(63,185,80,0.15); color: var(--success); }
+    .status-3xx { background: rgba(88,166,255,0.15); color: var(--accent); }
+    .status-4xx { background: rgba(248,81,73,0.15);  color: var(--danger); }
+    .status-5xx { background: rgba(248,81,73,0.15);  color: var(--danger); }
+
+    .num { font-variant-numeric: tabular-nums; }
+    .canonical-yes { color: var(--success); font-weight: 600; }
+    .canonical-no  { color: var(--danger);  font-weight: 600; }
+    .lt-fast   { color: var(--success); }
+    .lt-medium { color: var(--warning); }
+    .lt-slow   { color: var(--danger);  }
+
+    .seo-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      font-size: 0.8rem;
+      font-weight: 800;
+      font-family: monospace;
+      line-height: 1;
+    }
+    .seo-green  { background: rgba(63,185,80,0.18);  color: #3fb950; border: 2px solid rgba(63,185,80,0.4); }
+    .seo-yellow { background: rgba(210,153,34,0.18); color: #d29922; border: 2px solid rgba(210,153,34,0.4); }
+    .seo-red    { background: rgba(248,81,73,0.18);  color: #f85149; border: 2px solid rgba(248,81,73,0.4); }
+
+    .issues-cell {
+      font-size: 0.72rem;
+      line-height: 1.7;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border);
+      transition: background 0.1s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: rgba(30,37,48,0.7); }
+
+    td {
+      padding: 0.65rem 0.9rem;
+      vertical-align: top;
+      color: var(--text);
+      max-width: 220px;
+    }
+
+    .td-url { min-width: 200px; max-width: 200px; }
+    .td-url a {
+      color: var(--accent);
+      text-decoration: none;
+      display: block;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .td-url a:hover { text-decoration: underline; }
+
+    .td-text {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .td-tags { min-width: 180px; }
+
+    .tag-pill {
+      display: inline-block;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 0.1rem 0.4rem;
+      margin: 1px;
+      font-size: 0.73rem;
+      color: var(--text);
+      max-width: 195px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      vertical-align: middle;
+    }
+
+    .missing { color: var(--danger); font-style: italic; }
+    .dash { color: var(--text-dim); }
+
+    .word-count { font-weight: 700; font-variant-numeric: tabular-nums; }
+    .wc-good { color: var(--success); }
+    .wc-medium { color: var(--warning); }
+    .wc-low { color: var(--danger); }
+
+    .empty-state {
+      text-align: center;
+      padding: 4rem 2rem;
+      color: var(--text-muted);
+    }
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: 0.75rem; }
+    .empty-state p { font-size: 0.9rem; }
+
+    .pagination {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .page-btn {
+      padding: 0.3rem 0.7rem;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-size: 0.8rem;
+      cursor: pointer;
+      transition: background 0.12s;
+    }
+    .page-btn:hover { background: var(--border); }
+    .page-btn.active { background: var(--accent); color: #0d0f14; border-color: var(--accent); font-weight: 700; }
+    .page-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+
+    .page-info { font-size: 0.78rem; color: var(--text-muted); margin-left: auto; }
+
+    footer {
+      text-align: center;
+      padding: 1.1rem;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      border-top: 1px solid var(--border);
+    }
+
+    /* ---- AI Analyze button ---- */
+    .ai-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      margin-top: 0.4rem;
+      padding: 0.22rem 0.55rem;
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: #a371f7;
+      background: rgba(163,113,247,0.1);
+      border: 1px solid rgba(163,113,247,0.35);
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.15s, border-color 0.15s, color 0.15s;
+      white-space: nowrap;
+    }
+    .ai-btn:hover {
+      background: rgba(163,113,247,0.22);
+      border-color: #a371f7;
+      color: #c8a4ff;
+    }
+    .ai-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    /* ---- AI Modal overlay ---- */
+    .ai-modal-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(3px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      animation: fadeIn 0.18s ease;
+    }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+    .ai-modal-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      width: 100%;
+      max-width: 660px;
+      max-height: 85vh;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 64px rgba(0,0,0,0.55);
+      animation: slideUp 0.2s ease;
+    }
+    @keyframes slideUp { from { transform: translateY(18px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+
+    .ai-modal-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 1rem;
+      padding: 1.1rem 1.3rem 0.85rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .ai-modal-title {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .ai-modal-title span.chip {
+      font-size: 0.68rem;
+      font-weight: 600;
+      color: #a371f7;
+      background: rgba(163,113,247,0.15);
+      border: 1px solid rgba(163,113,247,0.3);
+      padding: 0.15rem 0.45rem;
+      border-radius: 20px;
+    }
+    .ai-modal-url {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      word-break: break-all;
+      padding: 0 1.3rem 0.75rem;
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .ai-modal-url a { color: var(--accent); text-decoration: none; }
+    .ai-modal-url a:hover { text-decoration: underline; }
+    .ai-modal-close {
+      background: none;
+      border: 1px solid var(--border);
+      color: var(--text-muted);
+      border-radius: 6px;
+      width: 28px;
+      height: 28px;
+      cursor: pointer;
+      font-size: 1rem;
+      line-height: 1;
+      flex-shrink: 0;
+      transition: background 0.12s, color 0.12s;
+    }
+    .ai-modal-close:hover { background: var(--surface2); color: var(--text); }
+
+    .ai-modal-body {
+      overflow-y: auto;
+      padding: 1.2rem 1.3rem;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    /* loading */
+    .ai-spinner {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+      padding: 2.5rem 1rem;
+      color: var(--text-muted);
+      font-size: 0.875rem;
+    }
+    .ai-spinner-ring {
+      width: 36px;
+      height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: #a371f7;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* sections */
+    .ai-section {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.9rem 1.05rem;
+    }
+    .ai-section-label {
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      color: var(--text-muted);
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+    .ai-section-label .icon { font-size: 0.9rem; }
+    .ai-section-content {
+      font-size: 0.875rem;
+      line-height: 1.65;
+      color: var(--text);
+    }
+    .ai-section-content.highlight {
+      color: #c8a4ff;
+      font-style: italic;
+    }
+    .ai-fix-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin: 0;
+      padding: 0;
+    }
+    .ai-fix-list li {
+      display: flex;
+      gap: 0.6rem;
+      font-size: 0.875rem;
+      line-height: 1.5;
+      color: var(--text);
+    }
+    .ai-fix-num {
+      flex-shrink: 0;
+      width: 22px;
+      height: 22px;
+      background: rgba(163,113,247,0.18);
+      color: #a371f7;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.72rem;
+      font-weight: 700;
+      margin-top: 1px;
+    }
+    .ai-error {
+      background: rgba(248,81,73,0.1);
+      border: 1px solid rgba(248,81,73,0.3);
+      border-radius: 10px;
+      padding: 1rem 1.1rem;
+      color: var(--danger);
+      font-size: 0.875rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="logo">
+      <svg width="30" height="30" viewBox="0 0 30 30" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="crawlDaddyOrb" x1="7" y1="5" x2="23" y2="25" gradientUnits="userSpaceOnUse">
+            <stop stop-color="white" stop-opacity="0.96"/>
+            <stop offset="1" stop-color="#DCEBFF" stop-opacity="0.9"/>
+          </linearGradient>
+        </defs>
+        <path d="M15 4.5C15.5 7.9 17.3 10.7 20.6 12.2C17.3 13.6 15.5 16.5 15 20C14.5 16.5 12.7 13.7 9.4 12.2C12.7 10.7 14.5 7.9 15 4.5Z" fill="url(#crawlDaddyOrb)"/>
+        <path d="M8 9.2C10.3 10.2 12.2 12.1 13.1 14.5C12.2 16.8 10.3 18.7 8 19.8" stroke="white" stroke-opacity="0.74" stroke-width="1.7" stroke-linecap="round"/>
+        <path d="M22 9.2C19.7 10.2 17.8 12.1 16.9 14.5C17.8 16.8 19.7 18.7 22 19.8" stroke="white" stroke-opacity="0.74" stroke-width="1.7" stroke-linecap="round"/>
+        <circle cx="15" cy="15" r="2.9" fill="#0E1D3B"/>
+        <circle cx="15" cy="15" r="1.35" fill="#8BD8FF"/>
+        <path d="M10.2 6.8L12.4 9" stroke="white" stroke-opacity="0.62" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M19.8 6.8L17.6 9" stroke="white" stroke-opacity="0.62" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M10.2 23.2L12.4 21" stroke="white" stroke-opacity="0.62" stroke-width="1.5" stroke-linecap="round"/>
+        <path d="M19.8 23.2L17.6 21" stroke="white" stroke-opacity="0.62" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <h1>Crawl Daddy</h1>
+    <div class="header-controls">
+    <span class="header-tag">I'm About to Judge Your Blog 👀</span>
+      <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Toggle color mode">
+        Dark mode
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero-shell">
+      <div class="hero-copy">
+        <div>
+          <span class="hero-eyebrow">Blog SEO intelligence scanner</span>
+          <h2>See where your content slips before search does.</h2>
+          <p>Crawl Daddy maps technical issues, metadata gaps, thin content, and page-speed signals in one glossy pass. Drop in a blog URL and get an editorial-grade teardown without juggling five different tools.</p>
+        </div>
+        <div class="hero-stats">
+          <div class="hero-stat">
+            <strong>Metadata</strong>
+            <span>Titles, canonicals, robots tags, Open Graph, and Twitter cards checked together.</span>
+          </div>
+          <div class="hero-stat">
+            <strong>Content</strong>
+            <span>Thin pages, missing headings, duplicate copy signals, and schema coverage surfaced fast.</span>
+          </div>
+          <div class="hero-stat">
+            <strong>AI Assist</strong>
+            <span>AI-backed rewrite suggestions stay one click away after every scan result lands.</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="scan-card">
+      <span class="glass-caption">Live crawl workspace</span>
+      <h2>Enter a blog URL to scan</h2>
+      <p class="scan-subcopy">Launch a focused crawl, monitor progress in real time, and turn a messy content archive into a clear action list.</p>
+      <div class="input-row">
+        <input type="url" id="url-input"
+          placeholder="https://yourblog.com"
+          autocomplete="off" spellcheck="false" />
+        <div class="scan-actions">
+          <button class="btn btn-primary" id="scan-btn" onclick="startScan()">
+            <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z"/>
+            </svg>
+            Scan Site
+          </button>
+          <span class="scan-note">Stable crawl mode now favors lower-memory extraction to avoid stalls on large blogs.</span>
+        </div>
+      </div>
+      <div class="progress-container" id="progress-container">
+        <div class="progress-header">
+          <span class="progress-label" id="progress-label">Discovering pages…</span>
+          <span class="progress-count" id="progress-count"></span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill indeterminate" id="progress-fill"></div>
+        </div>
+        <div class="progress-url" id="progress-url"></div>
+      </div>
+      <div class="error-msg" id="error-msg"></div>
+
+      <!-- Shown to users who try to scan while another scan is running -->
+      <div class="busy-panel" id="busy-panel" style="display:none">
+        <div class="busy-header">
+          <span class="busy-icon">⏳</span>
+          <span id="busy-phase-label">A scan is already in progress</span>
+        </div>
+        <div class="busy-bar-wrap">
+          <div class="busy-bar-fill" id="busy-bar-fill" style="width:0%"></div>
+        </div>
+        <div class="busy-stats">
+          <span id="busy-pages">Discovering pages…</span>
+          <span id="busy-eta"></span>
+        </div>
+        <div class="busy-sub" id="busy-current-url"></div>
+        <div class="busy-note">The form will unlock automatically when the scan finishes.</div>
+      </div>
+      </div>
+    </section>
+
+    <section id="results-section">
+      <div class="results-header">
+        <div class="results-meta">
+          <span id="result-count" class="badge badge-blue"></span>
+          <span id="method-badge" class="badge badge-green"></span>
+          <span id="domain-badge" class="badge badge-yellow"></span>
+        </div>
+        <button class="btn btn-success" onclick="downloadCSV()">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor">
+            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5z"/>
+            <path d="M7.646 11.854a.5.5 0 0 0 .708 0l3-3a.5.5 0 0 0-.708-.708L8.5 10.293V1.5a.5.5 0 0 0-1 0v8.793L5.354 8.146a.5.5 0 1 0-.708.708l3 3z"/>
+          </svg>
+          Download CSV
+        </button>
+      </div>
+
+      <!-- Stat Cards -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card accent-blue">
+          <div class="stat-icon">📄</div>
+          <div class="stat-value" id="stat-total">—</div>
+          <div class="stat-label">Pages Scanned</div>
+          <div class="stat-pct" id="stat-total-pct"></div>
+        </div>
+        <div class="stat-card accent-green">
+          <div class="stat-icon">⭐</div>
+          <div class="stat-value" id="stat-avg-score">—</div>
+          <div class="stat-label">Avg SEO Score</div>
+          <div class="stat-pct" id="stat-avg-score-pct"></div>
+        </div>
+        <div class="stat-card accent-red">
+          <div class="stat-icon">🔴</div>
+          <div class="stat-value" id="stat-no-h1">—</div>
+          <div class="stat-label">Missing H1</div>
+          <div class="stat-pct" id="stat-no-h1-pct"></div>
+        </div>
+        <div class="stat-card accent-yellow">
+          <div class="stat-icon">📝</div>
+          <div class="stat-value" id="stat-no-meta">—</div>
+          <div class="stat-label">Missing Meta Desc</div>
+          <div class="stat-pct" id="stat-no-meta-pct"></div>
+        </div>
+        <div class="stat-card accent-yellow">
+          <div class="stat-icon">⚪</div>
+          <div class="stat-value" id="stat-thin">—</div>
+          <div class="stat-label">Thin Content</div>
+          <div class="stat-pct" id="stat-thin-pct"></div>
+        </div>
+        <div class="stat-card accent-purple">
+          <div class="stat-icon">🔁</div>
+          <div class="stat-value" id="stat-dup-titles">—</div>
+          <div class="stat-label">Duplicate Titles</div>
+          <div class="stat-pct" id="stat-dup-titles-pct"></div>
+        </div>
+        <div class="stat-card accent-purple">
+          <div class="stat-icon">📋</div>
+          <div class="stat-value" id="stat-dup-meta">—</div>
+          <div class="stat-label">Duplicate Meta Descs</div>
+          <div class="stat-pct" id="stat-dup-meta-pct"></div>
+        </div>
+        <div class="stat-card accent-red">
+          <div class="stat-icon">💥</div>
+          <div class="stat-value" id="stat-broken">—</div>
+          <div class="stat-label">Broken Pages</div>
+          <div class="stat-pct" id="stat-broken-pct"></div>
+        </div>
+      </div>
+
+      <div class="filter-row">
+        <input type="text" id="filter-url" placeholder="Filter by URL…" oninput="applyFilters()" />
+        <input type="text" id="filter-title" placeholder="Filter by title…" oninput="applyFilters()" />
+        <input type="text" id="filter-desc" placeholder="Filter by meta description…" oninput="applyFilters()" />
+        <select id="filter-wc" onchange="applyFilters()">
+          <option value="">All word counts</option>
+          <option value="low">Low (&lt; 300 words)</option>
+          <option value="medium">Medium (300–900 words)</option>
+          <option value="good">Good (900+ words)</option>
+        </select>
+      </div>
+
+      <!-- Column group toggles -->
+      <div class="col-toggles">
+        <span class="col-toggles-label">Columns:</span>
+        <button class="col-toggle-btn active" data-group="basic"      onclick="toggleColGroup(this)">Basic SEO</button>
+        <button class="col-toggle-btn active" data-group="technical"  onclick="toggleColGroup(this)">Technical</button>
+        <button class="col-toggle-btn active" data-group="content"    onclick="toggleColGroup(this)">Content</button>
+        <button class="col-toggle-btn active" data-group="social"     onclick="toggleColGroup(this)">Social</button>
+        <button class="col-toggle-btn active" data-group="pagespeed"  onclick="toggleColGroup(this)">PageSpeed</button>
+      </div>
+
+      <div class="table-wrap">
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th class="col-url"  onclick="sortBy('url',0)">URL <span class="si"></span></th>
+              <th class="col-sm"   onclick="sortBy('seo_score',1)">SEO Score <span class="si"></span></th>
+              <th class="col-xl no-sort">Issues</th>
+              <th class="col-sm"   onclick="sortBy('status_code',3)">Status <span class="si"></span></th>
+              <th class="col-sm"   onclick="sortBy('load_time_ms',4)">Load (ms) <span class="si"></span></th>
+              <th class="col-lg"   onclick="sortBy('title',5)">Title Tag <span class="si"></span></th>
+              <th class="col-sm"   onclick="sortBy('title_length',6)">Title Len <span class="si"></span></th>
+              <th class="col-md no-sort">H1 Tags</th>
+              <th class="col-lg no-sort">H2 Tags (first 6)</th>
+              <th class="col-lg no-sort">H3 Tags (first 6)</th>
+              <th class="col-xl"   onclick="sortBy('meta_description',10)">Meta Description <span class="si"></span></th>
+              <th class="col-sm"   onclick="sortBy('meta_description_length',11)">Meta Len <span class="si"></span></th>
+              <th class="col-md no-sort">Meta Keywords</th>
+              <th class="col-md no-sort">Robots</th>
+              <th class="col-lg"   onclick="sortBy('og_title',14)">OG Title <span class="si"></span></th>
+              <th class="col-lg no-sort">OG Description</th>
+              <th class="col-md no-sort">OG Image</th>
+              <th class="col-md no-sort">Twitter Card</th>
+              <th class="col-lg"   onclick="sortBy('canonical_url',18)">Canonical URL <span class="si"></span></th>
+              <th class="col-sm no-sort">Canonical Match</th>
+              <th class="col-lg no-sort">Schema Types</th>
+              <th class="col-md"   onclick="sortBy('date_published',21)">Date Published <span class="si"></span></th>
+              <th class="col-md"   onclick="sortBy('author',22)">Author <span class="si"></span></th>
+              <th class="col-md no-sort">Hreflang</th>
+              <th class="col-sm"   onclick="sortBy('word_count',24)">Words <span class="si"></span></th>
+              <th class="col-sm"   onclick="sortBy('reading_time',25)">Read Time <span class="si"></span></th>
+              <th class="col-sm"   onclick="sortBy('internal_links',26)">Int. Links <span class="si"></span></th>
+              <th class="col-sm"   onclick="sortBy('external_links',27)">Ext. Links <span class="si"></span></th>
+              <th class="col-sm"   onclick="sortBy('image_count',28)">Images <span class="si"></span></th>
+              <th class="col-sm"   onclick="sortBy('images_missing_alt',29)">Missing Alt <span class="si"></span></th>
+              <th class="col-sm"   onclick="sortBy('ps_performance',30)">PS Perf <span class="si"></span></th>
+              <th class="col-sm"   onclick="sortBy('ps_seo',31)">PS SEO <span class="si"></span></th>
+              <th class="col-sm"   onclick="sortBy('ps_accessibility',32)">PS Access <span class="si"></span></th>
+              <th class="col-sm"   onclick="sortBy('ps_lcp',33)">LCP (s) <span class="si"></span></th>
+              <th class="col-sm"   onclick="sortBy('ps_cls',34)">CLS <span class="si"></span></th>
+            </tr>
+          </thead>
+          <tbody id="table-body"></tbody>
+        </table>
+      </div>
+
+      <div class="pagination" id="pagination"></div>
+    </section>
+  </main>
+
+  <footer>Nothing escapes. Not even that one bad blog from 2021.</footer>
+
+  <!-- AI Analysis Modal (injected/removed dynamically) -->
+  <div id="ai-modal-root"></div>
+
+  <script>
+    const THEME_KEY = 'crawl-daddy-theme';
+
+    function getPreferredTheme() {
+      const storedTheme = localStorage.getItem(THEME_KEY);
+      if (storedTheme === 'light' || storedTheme === 'dark') {
+        return storedTheme;
+      }
+
+      return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    }
+
+    function applyTheme(theme) {
+      document.documentElement.setAttribute('data-theme', theme);
+      const themeToggleButton = document.getElementById('theme-toggle');
+      if (themeToggleButton) {
+        const nextMode = theme === 'dark' ? 'Light mode' : 'Dark mode';
+        themeToggleButton.textContent = nextMode;
+        themeToggleButton.setAttribute('aria-pressed', String(theme === 'dark'));
+        themeToggleButton.setAttribute('title', `Switch to ${nextMode.toLowerCase()}`);
+      }
+    }
+
+    applyTheme(getPreferredTheme());
+
+    let allPages = [];
+    let filtered = [];
+    let sortCol = '';
+    let sortDir = 1;
+    let sortThIdx = -1;
+    let currentPage = 1;
+    const PAGE_SIZE = 50;
+    const themeToggleButton = document.getElementById('theme-toggle');
+
+    if (themeToggleButton) {
+      themeToggleButton.addEventListener('click', () => {
+        const currentTheme = document.documentElement.getAttribute('data-theme') === 'dark'
+          ? 'dark'
+          : 'light';
+        const nextTheme = currentTheme === 'dark' ? 'light' : 'dark';
+        localStorage.setItem(THEME_KEY, nextTheme);
+        applyTheme(nextTheme);
+      });
+    }
+
+    document.getElementById('url-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') startScan();
+    });
+
+    async function startScan() {
+      const url = document.getElementById('url-input').value.trim();
+      if (!url) { showError('Please enter a URL to scan.'); return; }
+
+      document.getElementById('scan-btn').disabled = true;
+      document.getElementById('results-section').classList.remove('visible');
+      document.getElementById('error-msg').classList.remove('visible');
+
+      // ---- Set up progress UI ----
+      const fill    = document.getElementById('progress-fill');
+      const label   = document.getElementById('progress-label');
+      const countEl = document.getElementById('progress-count');
+      const urlEl   = document.getElementById('progress-url');
+
+      function showProgress(visible) {
+        document.getElementById('progress-container').classList.toggle('visible', visible);
+      }
+      function resetProgress() {
+        fill.style.width = '0%';
+        fill.classList.add('indeterminate');
+        label.textContent = 'Discovering pages…';
+        countEl.textContent = '';
+        urlEl.textContent = '';
+      }
+      function setProgress(scanned, total, currentUrl) {
+        fill.classList.remove('indeterminate');
+        const pct = total ? Math.min(100, Math.round(scanned / total * 100)) : null;
+        fill.style.width = pct != null ? pct + '%' : '0%';
+        label.textContent = pct != null
+          ? `Scanning… ${pct}% complete`
+          : `Scanning… ${scanned} pages done`;
+        countEl.textContent = total ? `${scanned} / ${total}` : `${scanned}`;
+        if (currentUrl) urlEl.textContent = '↳ ' + currentUrl;
+      }
+
+      resetProgress();
+      showProgress(true);
+
+      // ---- Start the scan — server returns a scan_id immediately ----
+      // We then poll GET /result/<scan_id> every 3 seconds for progress and
+      // the final result.  No persistent connection is kept open, so slow or
+      // proxied connections never time out mid-scan.
+
+      let pollInterval = null;
+
+      function finishScan() {
+        if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
+        showProgress(false);
+        document.getElementById('scan-btn').disabled = false;
+      }
+
+      function applyPollState(s) {
+        if (s.status === 'error') {
+          showError(s.error || 'Scan failed.');
+          finishScan();
+          return;
+        }
+
+        if (s.status === 'not_found') {
+          showError('Scan not found on server. Please try again.');
+          finishScan();
+          return;
+        }
+
+        if (s.status === 'running') {
+          if (s.phase === 'pagespeed') {
+            const psDone = s.ps_done || 0;
+            const psTotal = s.ps_total || 0;
+            const pct = psTotal > 0 ? Math.round(psDone / psTotal * 100) : 0;
+            label.textContent = `Fetching PageSpeed data for ${psDone} / ${psTotal} pages… (${pct}%)`;
+            fill.classList.remove('indeterminate');
+            fill.style.width = `${95 + pct * 0.05}%`;
+          } else if (s.discovered > 0 && s.total > 0) {
+            setProgress(s.scanned, s.total, s.current_url);
+          } else if (s.discovered > 0) {
+            label.textContent = `Found ${s.discovered} pages — scanning…`;
+            fill.classList.remove('indeterminate');
+            fill.style.width = '2%';
+          }
+          // else: leave the indeterminate bar — still discovering
+          return;
+        }
+
+        if (s.status === 'done') {
+          fill.style.width = '100%';
+          label.textContent = 'Scan complete!';
+
+          allPages = s.pages || [];
+          filtered = [...allPages];
+          sortCol = '';
+          sortDir = 1;
+          sortThIdx = -1;
+          currentPage = 1;
+          clearFilters();
+          clearSortIcons();
+
+          document.getElementById('result-count').textContent =
+            `${allPages.length} page${allPages.length !== 1 ? 's' : ''} found`;
+          const methodLabel = (s.method || '').includes('sitemap')
+            ? 'Via Sitemap'
+            : 'BFS Crawl';
+          document.getElementById('method-badge').textContent =
+            (s.method || '').includes('requests')
+              ? `${methodLabel} (static fallback)`
+              : methodLabel;
+          document.getElementById('domain-badge').textContent = `🌐 ${s.domain}`;
+
+          renderStats(allPages);
+          renderTable();
+          document.getElementById('results-section').classList.add('visible');
+          document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+          finishScan();
+        }
+      }
+
+      // Fire the scan — server returns in < 1 s with a scan_id
+      try {
+        const resp = await fetch('/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url })
+        });
+        const data = await resp.json();
+        if (resp.status === 429 || data.busy) {
+          finishScan();
+          startBusyWatch();
+          return;
+        }
+        if (!resp.ok || data.error) {
+          showError(data.error || 'Scan failed. Please check the URL and try again.');
+          finishScan();
+          return;
+        }
+
+        const scanId = data.scan_id;
+
+        // Poll every 3 seconds until the scan finishes or errors
+        pollInterval = setInterval(async () => {
+          try {
+            const pr = await fetch(`/result/${scanId}`);
+            const state = await pr.json();
+            applyPollState(state);
+          } catch (_) {
+            // Transient network hiccup — keep polling
+          }
+        }, 3000);
+
+        // Kick off the first poll immediately (don't wait 3 s for first update)
+        try {
+          const pr = await fetch(`/result/${scanId}`);
+          const state = await pr.json();
+          applyPollState(state);
+        } catch (_) {}
+
+      } catch (err) {
+        showError('Could not reach the server. Please try again.');
+        finishScan();
+      }
+    }
+
+    function showError(msg) {
+      const el = document.getElementById('error-msg');
+      el.textContent = msg;
+      el.classList.add('visible');
+    }
+
+    /* ── Busy-watcher: polls /busy_status while another scan is running ── */
+    let busyInterval = null;
+
+    function startBusyWatch() {
+      if (busyInterval) clearInterval(busyInterval);  // prevent double-intervals
+      document.getElementById('scan-btn').disabled = true;
+      document.getElementById('busy-panel').style.display = 'block';
+      updateBusyPanel();                        // immediate first read
+      busyInterval = setInterval(updateBusyPanel, 3000);
+    }
+
+    function stopBusyWatch() {
+      clearInterval(busyInterval);
+      busyInterval = null;
+      document.getElementById('busy-panel').style.display = 'none';
+      document.getElementById('scan-btn').disabled = false;
+    }
+
+    async function updateBusyPanel() {
+      let s;
+      try {
+        const r = await fetch('/busy_status');
+        s = await r.json();
+      } catch (_) { return; }
+
+      if (!s.busy) {
+        // The running scan finished — hide panel and unlock the form
+        stopBusyWatch();
+        return;
+      }
+
+      const phase    = s.phase || 'crawling';
+      const scanned  = s.scanned  || 0;
+      const total    = s.total    || 0;
+      const psDone   = s.ps_done  || 0;
+      const psTotal  = s.ps_total || 0;
+      const elapsed  = s.elapsed  || 0;
+      const estLeft  = s.est_remaining;
+
+      // Phase label
+      const phaseLabel = phase === 'pagespeed'
+        ? 'Running PageSpeed analysis…'
+        : 'Crawling pages…';
+      document.getElementById('busy-phase-label').textContent =
+        'Another scan is in progress: ' + phaseLabel;
+
+      // Progress bar (0–100%)
+      let pct = 0;
+      if (phase === 'pagespeed' && psTotal > 0) {
+        pct = Math.round((psDone / psTotal) * 100);
+      } else if (total > 0) {
+        pct = Math.round((scanned / total) * 100);
+      }
+      document.getElementById('busy-bar-fill').style.width = pct + '%';
+
+      // Page counter
+      if (phase === 'pagespeed' && psTotal > 0) {
+        document.getElementById('busy-pages').textContent =
+          `PageSpeed: ${psDone} / ${psTotal} pages`;
+      } else if (total > 0) {
+        document.getElementById('busy-pages').textContent =
+          `Crawled ${scanned} of ${total} pages`;
+      } else {
+        document.getElementById('busy-pages').textContent = 'Discovering pages…';
+      }
+
+      // ETA countdown
+      if (estLeft !== null && estLeft !== undefined) {
+        const m = Math.floor(estLeft / 60);
+        const sec = estLeft % 60;
+        document.getElementById('busy-eta').textContent =
+          m > 0 ? `~${m}m ${sec}s remaining` : `~${sec}s remaining`;
+      } else {
+        const em = Math.floor(elapsed / 60);
+        const es = elapsed % 60;
+        document.getElementById('busy-eta').textContent =
+          `Elapsed: ${em > 0 ? em + 'm ' : ''}${es}s`;
+      }
+
+      // Current URL (subtle sub-line)
+      const cu = s.current_url || '';
+      document.getElementById('busy-current-url').textContent =
+        cu ? 'Now: ' + cu : '';
+    }
+
+    function toggleColGroup(btn) {
+      const group = btn.dataset.group;
+      const table = document.getElementById('results-table');
+      const hidden = table.classList.toggle('hide-' + group);
+      btn.classList.toggle('active', !hidden);
+    }
+
+    function clearFilters() {
+      ['filter-url','filter-title','filter-desc'].forEach(id => document.getElementById(id).value = '');
+      document.getElementById('filter-wc').value = '';
+    }
+
+    function clearSortIcons() {
+      document.querySelectorAll('th').forEach(th => th.classList.remove('sort-asc', 'sort-desc'));
+    }
+
+    function renderStats(pages) {
+      const total = pages.length;
+      if (!total) return;
+
+      function pct(n) {
+        return total > 0 ? Math.round(n / total * 100) : 0;
+      }
+      function set(id, val, pctVal, colorClass) {
+        const el = document.getElementById(id);
+        if (el) {
+          el.textContent = val;
+          if (colorClass) {
+            el.className = 'stat-value ' + colorClass;
+          }
+        }
+        const pctEl = document.getElementById(id + '-pct');
+        if (pctEl && pctVal !== null) {
+          pctEl.innerHTML = `<span>${pctVal}% of pages</span>`;
+        }
+      }
+
+      // 1. Total pages
+      set('stat-total', total.toLocaleString(), null, null);
+      document.getElementById('stat-total-pct').innerHTML = '<span>100%</span>';
+
+      // 2. Average SEO score
+      const scores = pages.map(p => p.seo_score || 0);
+      const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / total);
+      const scoreClass = avgScore >= 80 ? 'success' : avgScore >= 50 ? 'warning' : 'danger';
+      set('stat-avg-score', avgScore, null, scoreClass);
+      document.getElementById('stat-avg-score-pct').innerHTML =
+        `<span>${avgScore >= 80 ? 'Good' : avgScore >= 50 ? 'Needs work' : 'Poor'}</span>`;
+
+      // 3. Missing H1
+      const noH1 = pages.filter(p => !p.h1_tags || p.h1_tags.length === 0).length;
+      const noH1Color = noH1 > 0 ? 'danger' : 'success';
+      set('stat-no-h1', noH1.toLocaleString(), pct(noH1), noH1Color);
+
+      // 4. Missing meta description
+      const noMeta = pages.filter(p => !p.meta_description).length;
+      const noMetaColor = noMeta > 0 ? (pct(noMeta) > 30 ? 'danger' : 'warning') : 'success';
+      set('stat-no-meta', noMeta.toLocaleString(), pct(noMeta), noMetaColor);
+
+      // 5. Thin content (< 300 words)
+      const thin = pages.filter(p => (p.word_count || 0) < 300).length;
+      const thinColor = thin > 0 ? (pct(thin) > 30 ? 'danger' : 'warning') : 'success';
+      set('stat-thin', thin.toLocaleString(), pct(thin), thinColor);
+
+      // 6. Duplicate titles
+      const titleFreq = {};
+      pages.forEach(p => {
+        const t = (p.title || '').trim().toLowerCase();
+        if (t) titleFreq[t] = (titleFreq[t] || 0) + 1;
+      });
+      const dupTitles = pages.filter(p => {
+        const t = (p.title || '').trim().toLowerCase();
+        return t && titleFreq[t] > 1;
+      }).length;
+      const dupTitleColor = dupTitles > 0 ? 'warning' : 'success';
+      set('stat-dup-titles', dupTitles.toLocaleString(), pct(dupTitles), dupTitleColor);
+
+      // 7. Duplicate meta descriptions
+      const metaFreq = {};
+      pages.forEach(p => {
+        const m = (p.meta_description || '').trim().toLowerCase();
+        if (m) metaFreq[m] = (metaFreq[m] || 0) + 1;
+      });
+      const dupMeta = pages.filter(p => {
+        const m = (p.meta_description || '').trim().toLowerCase();
+        return m && metaFreq[m] > 1;
+      }).length;
+      const dupMetaColor = dupMeta > 0 ? 'warning' : 'success';
+      set('stat-dup-meta', dupMeta.toLocaleString(), pct(dupMeta), dupMetaColor);
+
+      // 8. Broken pages (non-200 status)
+      const broken = pages.filter(p => p.status_code && p.status_code !== 200).length;
+      const brokenColor = broken > 0 ? 'danger' : 'success';
+      set('stat-broken', broken.toLocaleString(), pct(broken), brokenColor);
+    }
+
+    function applyFilters() {
+      const fu = document.getElementById('filter-url').value.toLowerCase();
+      const ft = document.getElementById('filter-title').value.toLowerCase();
+      const fd = document.getElementById('filter-desc').value.toLowerCase();
+      const fw = document.getElementById('filter-wc').value;
+
+      filtered = allPages.filter(p => {
+        if (fu && !(p.url||'').toLowerCase().includes(fu)) return false;
+        if (ft && !(p.title||'').toLowerCase().includes(ft)) return false;
+        if (fd && !(p.meta_description||'').toLowerCase().includes(fd)) return false;
+        if (fw) {
+          const wc = p.word_count || 0;
+          if (fw === 'low' && wc >= 300) return false;
+          if (fw === 'medium' && (wc < 300 || wc >= 900)) return false;
+          if (fw === 'good' && wc < 900) return false;
+        }
+        return true;
+      });
+
+      if (sortCol) doSort();
+      currentPage = 1;
+      renderTable();
+    }
+
+    function sortBy(col, thIdx) {
+      if (sortCol === col) {
+        sortDir *= -1;
+      } else {
+        sortCol = col;
+        sortDir = 1;
+        sortThIdx = thIdx;
+      }
+      clearSortIcons();
+      const ths = document.querySelectorAll('th');
+      if (thIdx >= 0 && thIdx < ths.length) {
+        ths[thIdx].classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+      }
+      doSort();
+      currentPage = 1;
+      renderTable();
+    }
+
+    const NUMERIC_COLS = new Set([
+      'seo_score','status_code','load_time_ms','title_length','meta_description_length',
+      'word_count','reading_time','internal_links','external_links',
+      'image_count','images_missing_alt',
+      'ps_performance','ps_seo','ps_accessibility','ps_lcp','ps_cls'
+    ]);
+
+    function doSort() {
+      filtered.sort((a, b) => {
+        let av = a[sortCol] ?? '';
+        let bv = b[sortCol] ?? '';
+        if (NUMERIC_COLS.has(sortCol)) {
+          if (av === 'N/A' && bv === 'N/A') return 0;
+          if (av === 'N/A') return sortDir;    // N/A always floats to end
+          if (bv === 'N/A') return -sortDir;
+          return (Number(av) - Number(bv)) * sortDir;
+        }
+        return String(av).localeCompare(String(bv)) * sortDir;
+      });
+    }
+
+    function seoBadge(score) {
+      if (score == null) return '<span class="dash">—</span>';
+      const cls = score >= 80 ? 'seo-green' : score >= 50 ? 'seo-yellow' : 'seo-red';
+      return `<span class="seo-badge ${cls}">${score}</span>`;
+    }
+
+    function statusBadge(code) {
+      if (!code) return '<span class="dash">—</span>';
+      const cls = code >= 500 ? 'status-5xx' : code >= 400 ? 'status-4xx' : code >= 300 ? 'status-3xx' : 'status-2xx';
+      return `<span class="status-badge ${cls}">${code}</span>`;
+    }
+
+    function ltBadge(ms) {
+      if (ms == null || ms === 0) return '<span class="dash">—</span>';
+      const cls = ms < 1000 ? 'lt-fast' : ms < 3000 ? 'lt-medium' : 'lt-slow';
+      return `<span class="num ${cls}">${ms.toLocaleString()}</span>`;
+    }
+
+    function canonicalBadge(val) {
+      if (!val) return '<span class="dash">—</span>';
+      return val === 'Yes'
+        ? '<span class="canonical-yes">✓ Yes</span>'
+        : '<span class="canonical-no">✗ No</span>';
+    }
+
+    function dash(val) {
+      return val ? esc(val) : '<span class="dash">—</span>';
+    }
+
+    function psBadge(val) {
+      if (val == null || val === 'N/A') return '<span class="dash">N/A</span>';
+      const s = Number(val);
+      const cls = s >= 80 ? 'seo-green' : s >= 50 ? 'seo-yellow' : 'seo-red';
+      return `<span class="seo-badge ${cls}">${s}</span>`;
+    }
+
+    function lcpBadge(val) {
+      if (val == null || val === 'N/A') return '<span class="dash">N/A</span>';
+      const s = Number(val);
+      const cls = s <= 2.5 ? 'seo-green' : s <= 4 ? 'seo-yellow' : 'seo-red';
+      return `<span class="seo-badge ${cls}">${s}s</span>`;
+    }
+
+    function clsBadge(val) {
+      if (val == null || val === 'N/A') return '<span class="dash">N/A</span>';
+      const c = Number(val);
+      const cls = c <= 0.1 ? 'seo-green' : c <= 0.25 ? 'seo-yellow' : 'seo-red';
+      return `<span class="seo-badge ${cls}">${c}</span>`;
+    }
+
+    function renderTable() {
+      const tbody = document.getElementById('table-body');
+      const start = (currentPage - 1) * PAGE_SIZE;
+      const slice = filtered.slice(start, start + PAGE_SIZE);
+
+      if (slice.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="35"><div class="empty-state">
+          <div class="icon">🔎</div>
+          <p>No pages match your current filters.</p>
+        </div></td></tr>`;
+        renderPagination();
+        return;
+      }
+
+      tbody.innerHTML = slice.map((p, i) => {
+        const wc = p.word_count || 0;
+        const wcClass = wc >= 900 ? 'wc-good' : wc >= 300 ? 'wc-medium' : 'wc-low';
+        const alt = p.images_missing_alt || 0;
+        const issueLines = p.issues ? p.issues.split(', ').join('<br>') : '';
+        const rowClass = (p.seo_score != null && p.seo_score < 50) ? ' class="row-low-score"' : '';
+        const pageIdx = start + i;
+        return `<tr${rowClass}>
+          <td class="td-url">
+            <a href="${esc(p.url)}" target="_blank" rel="noopener" title="${esc(p.url)}">${esc(p.url)}</a>
+            <button class="ai-btn" onclick="analyzeWithAI(${pageIdx})">✦ Analyze</button>
+          </td>
+          <td style="text-align:center">${seoBadge(p.seo_score)}</td>
+          <td class="issues-cell">${issueLines || '<span class="dash">—</span>'}</td>
+          <td style="text-align:center">${statusBadge(p.status_code)}</td>
+          <td style="text-align:right">${ltBadge(p.load_time_ms)}</td>
+          <td class="td-text" title="${esc(p.title)}">
+            ${p.title ? esc(p.title) : '<span class="missing">Missing</span>'}
+          </td>
+          <td class="num" style="text-align:right">${p.title_length != null ? p.title_length : '—'}</td>
+          <td class="td-tags">${renderTags(p.h1_tags) || '<span class="missing">Missing</span>'}</td>
+          <td class="td-tags">${renderTags(p.h2_tags) || '<span class="dash">—</span>'}</td>
+          <td class="td-tags">${renderTags(p.h3_tags) || '<span class="dash">—</span>'}</td>
+          <td class="td-text" title="${esc(p.meta_description)}">
+            ${p.meta_description ? esc(p.meta_description) : '<span class="missing">Missing</span>'}
+          </td>
+          <td class="num" style="text-align:right">${p.meta_description_length != null ? p.meta_description_length : '—'}</td>
+          <td class="td-text">${dash(p.meta_keywords)}</td>
+          <td>${dash(p.robots_meta)}</td>
+          <td class="td-text" title="${esc(p.og_title)}">${dash(p.og_title)}</td>
+          <td class="td-text" title="${esc(p.og_description)}">${dash(p.og_description)}</td>
+          <td class="td-text">
+            ${p.og_image ? `<a href="${esc(p.og_image)}" target="_blank" rel="noopener" title="${esc(p.og_image)}" style="color:var(--accent);font-size:0.75rem">View</a>` : '<span class="dash">—</span>'}
+          </td>
+          <td>${dash(p.twitter_card)}</td>
+          <td class="td-text" title="${esc(p.canonical_url)}">${dash(p.canonical_url)}</td>
+          <td style="text-align:center">${canonicalBadge(p.canonical_matches)}</td>
+          <td class="td-text">${dash(p.jsonld_schema_types)}</td>
+          <td>${dash(p.date_published)}</td>
+          <td class="td-text">${dash(p.author)}</td>
+          <td>${dash(p.hreflang_languages)}</td>
+          <td><span class="word-count ${wcClass}">${wc.toLocaleString()}</span></td>
+          <td class="num" style="text-align:right">${p.reading_time != null ? p.reading_time + ' min' : '—'}</td>
+          <td class="num" style="text-align:right">${p.internal_links ?? '—'}</td>
+          <td class="num" style="text-align:right">${p.external_links ?? '—'}</td>
+          <td class="num" style="text-align:right">${p.image_count ?? '—'}</td>
+          <td class="num" style="text-align:right${alt > 0 ? ';color:var(--warning)' : ''}">${alt}</td>
+          <td style="text-align:center">${psBadge(p.ps_performance)}</td>
+          <td style="text-align:center">${psBadge(p.ps_seo)}</td>
+          <td style="text-align:center">${psBadge(p.ps_accessibility)}</td>
+          <td style="text-align:center">${lcpBadge(p.ps_lcp)}</td>
+          <td style="text-align:center">${clsBadge(p.ps_cls)}</td>
+        </tr>`;
+      }).join('');
+
+      renderPagination();
+    }
+
+    function renderTags(str) {
+      if (!str) return '';
+      return str.split(' | ').filter(Boolean).map(t =>
+        `<span class="tag-pill" title="${esc(t)}">${esc(t)}</span>`
+      ).join('');
+    }
+
+    function esc(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function renderPagination() {
+      const total = filtered.length;
+      const pages = Math.ceil(total / PAGE_SIZE);
+      const pag = document.getElementById('pagination');
+      if (pages <= 1) { pag.innerHTML = ''; return; }
+
+      let html = `<button class="page-btn" onclick="goPage(${currentPage-1})"
+        ${currentPage===1?'disabled':''}>← Prev</button>`;
+
+      for (let i = 1; i <= pages; i++) {
+        if (pages > 10 && Math.abs(i - currentPage) > 2 && i !== 1 && i !== pages) {
+          if (i === currentPage-3 || i === currentPage+3) {
+            html += '<span style="color:var(--text-dim);padding:0 4px">…</span>';
+          }
+          continue;
+        }
+        html += `<button class="page-btn ${i===currentPage?'active':''}" onclick="goPage(${i})">${i}</button>`;
+      }
+
+      html += `<button class="page-btn" onclick="goPage(${currentPage+1})"
+        ${currentPage===pages?'disabled':''}>Next →</button>`;
+      html += `<span class="page-info">
+        Showing ${Math.min((currentPage-1)*PAGE_SIZE+1,total)}–${Math.min(currentPage*PAGE_SIZE,total)} of ${total}
+      </span>`;
+      pag.innerHTML = html;
+    }
+
+    function goPage(p) {
+      const pages = Math.ceil(filtered.length / PAGE_SIZE);
+      if (p < 1 || p > pages) return;
+      currentPage = p;
+      renderTable();
+      document.getElementById('results-section').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ── AI Analysis modal ───────────────────────────────────────────────────
+
+    function openAiModal(pageUrl) {
+      const root = document.getElementById('ai-modal-root');
+      root.innerHTML = `
+        <div class="ai-modal-overlay" id="ai-overlay" onclick="handleOverlayClick(event)">
+          <div class="ai-modal-box" role="dialog" aria-modal="true" aria-label="AI SEO Analysis">
+            <div class="ai-modal-head">
+              <div class="ai-modal-title">
+                ✦ AI SEO Analysis
+                <span class="chip" id="ai-provider-chip">AI</span>
+              </div>
+              <button class="ai-modal-close" onclick="closeAiModal()" title="Close (Esc)">✕</button>
+            </div>
+            <div class="ai-modal-url">
+              <a href="${esc(pageUrl)}" target="_blank" rel="noopener">${esc(pageUrl)}</a>
+            </div>
+            <div class="ai-modal-body" id="ai-modal-body">
+              <div class="ai-spinner">
+                <div class="ai-spinner-ring"></div>
+                Analyzing this page…
+              </div>
+            </div>
+          </div>
+        </div>`;
+      document.addEventListener('keydown', handleModalEsc);
+    }
+
+    function closeAiModal() {
+      document.getElementById('ai-modal-root').innerHTML = '';
+      document.removeEventListener('keydown', handleModalEsc);
+    }
+
+    function handleModalEsc(e) {
+      if (e.key === 'Escape') closeAiModal();
+    }
+
+    function handleOverlayClick(e) {
+      if (e.target.id === 'ai-overlay') closeAiModal();
+    }
+
+    function parseAiResponse(text) {
+      const grab = (header, nextHeaders) => {
+        const escapedHeader = header.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const nextPart = nextHeaders.length
+          ? `(?=${nextHeaders.map(h => h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|')}|$)`
+          : '';
+        const rx = new RegExp(escapedHeader + '\\s*([\\s\\S]*?)' + nextPart, 'i');
+        const m = text.match(rx);
+        return m ? m[1].trim() : '';
+      };
+
+      const allHeaders = ['ASSESSMENT:', 'TITLE SUGGESTION:', 'META DESCRIPTION SUGGESTION:', 'PRIORITY FIXES:'];
+      return {
+        assessment : grab('ASSESSMENT:',                   allHeaders.slice(1)),
+        title      : grab('TITLE SUGGESTION:',             allHeaders.slice(2)),
+        meta       : grab('META DESCRIPTION SUGGESTION:',  allHeaders.slice(3)),
+        fixes      : grab('PRIORITY FIXES:',               []),
+      };
+    }
+
+    function renderAiResult(parsed) {
+      const fixLines = parsed.fixes
+        .split(/\n/)
+        .map(l => l.trim())
+        .filter(l => /^[123]\./.test(l))
+        .map(l => l.replace(/^[123]\.\s*/, '').trim());
+
+      const fixItems = fixLines.length
+        ? fixLines.map((f, i) => `
+            <li>
+              <span class="ai-fix-num">${i + 1}</span>
+              <span>${esc(f)}</span>
+            </li>`).join('')
+        : '<li><span class="ai-fix-num">—</span><span>No fixes extracted.</span></li>';
+
+      return `
+        <div class="ai-section">
+          <div class="ai-section-label"><span class="icon">📊</span> Content Quality Assessment</div>
+          <div class="ai-section-content">${esc(parsed.assessment) || '<em>No assessment returned.</em>'}</div>
+        </div>
+        <div class="ai-section">
+          <div class="ai-section-label"><span class="icon">📝</span> Suggested Title Tag</div>
+          <div class="ai-section-content highlight">${esc(parsed.title) || '<em>No suggestion returned.</em>'}</div>
+        </div>
+        <div class="ai-section">
+          <div class="ai-section-label"><span class="icon">📄</span> Suggested Meta Description</div>
+          <div class="ai-section-content highlight">${esc(parsed.meta) || '<em>No suggestion returned.</em>'}</div>
+        </div>
+        <div class="ai-section">
+          <div class="ai-section-label"><span class="icon">🔧</span> Top 3 Priority Fixes</div>
+          <ul class="ai-fix-list">${fixItems}</ul>
+        </div>`;
+    }
+
+    async function analyzeWithAI(pageIdx) {
+      const page = filtered[pageIdx];
+      if (!page) return;
+
+      openAiModal(page.url);
+
+      try {
+        const resp = await fetch('/ai-analyze', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ page }),
+        });
+        const data = await resp.json();
+        const body = document.getElementById('ai-modal-body');
+        const providerChip = document.getElementById('ai-provider-chip');
+        if (!body) return;   // modal was closed while loading
+        if (providerChip && data.provider) providerChip.textContent = data.provider;
+
+        if (data.error) {
+          body.innerHTML = `<div class="ai-error">⚠ ${esc(data.error)}</div>`;
+          return;
+        }
+
+        const parsed = parseAiResponse(data.result || '');
+        body.innerHTML = renderAiResult(parsed);
+      } catch (err) {
+        const body = document.getElementById('ai-modal-body');
+        if (body) body.innerHTML = `<div class="ai-error">⚠ Network error: ${esc(err.message)}</div>`;
+      }
+    }
+
+    // ── CSV Download ─────────────────────────────────────────────────────────
+
+    async function downloadCSV() {
+      if (!allPages.length) return;
+      try {
+        const resp = await fetch('/download-csv', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pages: allPages })
+        });
+        if (!resp.ok) { alert('Failed to generate CSV'); return; }
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'seo-scan-results.csv'; a.click();
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        alert('Download failed: ' + err.message);
+      }
+    }
+  </script>
+</body>
+</html>

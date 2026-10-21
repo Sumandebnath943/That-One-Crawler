@@ -1,0 +1,171 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* .theme-light pins a section to light colors, e.g. dark text on the lime CTA even in dark mode. */
+:root,
+.theme-light {
+  --paper: #f6f1e6;
+  --paper-2: #fffcf5;
+  --paper-3: #ece5d6;
+  --ink: #1a1712;
+  --ink-2: #4e483e;
+  --ink-3: #6f6758;
+  --line: #ddd3bf;
+  --lime: #d6ff3d;
+  --lime-ink: #1a1712;
+  --crit: #cf3a1d;
+  --warn: #9a5b00;
+  --note: #2c5bc9;
+  --good: #1b7a39;
+  --shadow: #1a1712;
+  color-scheme: light;
+}
+
+.dark {
+  --paper: #12110e;
+  --paper-2: #1b1915;
+  --paper-3: #26231d;
+  --ink: #f3eee2;
+  --ink-2: #c7bfae;
+  --ink-3: #9a917f;
+  --line: #36322b;
+  --lime: #d6ff3d;
+  --lime-ink: #12110e;
+  --crit: #ff7c5c;
+  --warn: #f2b54a;
+  --note: #8eaeff;
+  --good: #63d68e;
+  --shadow: #000000;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-card: var(--paper-2);
+  --color-sunk: var(--paper-3);
+  --color-ink: var(--ink);
+  --color-ink-2: var(--ink-2);
+  --color-ink-3: var(--ink-3);
+  --color-line: var(--line);
+  --color-lime: var(--lime);
+  --color-lime-ink: var(--lime-ink);
+  --color-crit: var(--crit);
+  --color-warn: var(--warn);
+  --color-note: var(--note);
+  --color-good: var(--good);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-bricolage);
+  --shadow-brutal: 4px 4px 0 0 var(--shadow);
+  --shadow-brutal-sm: 2px 2px 0 0 var(--shadow);
+  --shadow-brutal-lg: 6px 6px 0 0 var(--shadow);
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+}
+
+::selection {
+  background: var(--lime);
+  color: var(--lime-ink);
+}
+
+:focus-visible {
+  outline: 3px solid var(--note);
+  outline-offset: 2px;
+}
+
+.dots {
+  background-image: radial-gradient(var(--line) 1.2px, transparent 1.2px);
+  background-size: 22px 22px;
+}
+
+.highlight {
+  background: linear-gradient(transparent 58%, var(--lime) 58%, var(--lime) 92%, transparent 92%);
+  padding: 0 0.12em;
+  box-decoration-break: clone;
+  -webkit-box-decoration-break: clone;
+}
+
+.dark .highlight {
+  background: none;
+  color: var(--lime);
+}
+
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.marquee-track {
+  animation: marquee 45s linear infinite;
+}
+
+.marquee:hover .marquee-track {
+  animation-play-state: paused;
+}
+
+@keyframes indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(250%);
+  }
+}
+
+.bar-indeterminate {
+  animation: indeterminate 1.4s ease-in-out infinite;
+}
+
+@keyframes wobble {
+  0%,
+  100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+
+.wobble {
+  animation: wobble 3.2s ease-in-out infinite;
+  transform-origin: 50% 20%;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.rise {
+  animation: rise 0.35s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track,
+  .bar-indeterminate,
+  .wobble,
+  .rise {
+    animation: none;
+  }
+  html {
+    scroll-behavior: auto;
+  }
+}

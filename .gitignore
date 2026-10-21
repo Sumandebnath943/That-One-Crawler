@@ -1,0 +1,49 @@
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+Thumbs.db
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (copy .env.example to .env.local for local dev)
+.env*
+!.env.example
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
+
+# local caches (npm cache / temp files kept off the C: drive)
+/.cache/
+# Chromium crash dumps left over from the old Playwright setup
+/.config/
+/.agents/
+
+# editor / tooling
+/.idea
+.vscode/*
+!.vscode/extensions.json
+# local Claude Code config (launch.json points TEMP at this machine's D: drive)
+/.claude/
