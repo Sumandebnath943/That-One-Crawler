@@ -1,5 +1,6 @@
 import { Mascot } from "@/components/Mascot";
 import { ScanForm } from "@/components/ScanForm";
+import { HeroMascot } from "./HeroMascot";
 
 const FINDINGS: { tone: "crit" | "warn" | "note"; path: string; text: string }[] = [
   { tone: "crit", path: "/hello-world", text: "Missing H1" },
@@ -125,13 +126,7 @@ export function Hero() {
           </div>
         </div>
 
-        <div className="relative mx-auto w-full max-w-xs md:max-w-sm">
-          <div className="absolute -top-2 right-0 z-10 max-w-[13rem] rotate-3 rounded-2xl border-2 border-ink bg-card px-4 py-3 text-sm font-semibold shadow-brutal sm:-right-4">
-            I&apos;ve seen things. Mostly missing H1s.
-            <span className="absolute -bottom-2.5 left-8 size-4 rotate-45 border-r-2 border-b-2 border-ink bg-card" />
-          </div>
-          <Mascot follow className="wobble mt-14 w-full drop-shadow-[6px_6px_0_var(--line)]" />
-        </div>
+        <HeroMascot />
       </div>
     </section>
   );
@@ -260,7 +255,7 @@ export function FinalCta() {
   return (
     <section className="theme-light border-t-2 border-ink bg-lime text-lime-ink">
       <div className="mx-auto flex max-w-4xl flex-col items-center px-4 py-16 text-center sm:px-6">
-        <Mascot className="size-24 -rotate-6" />
+        <Mascot pokeable className="size-24 -rotate-6" />
         <h2 className="mt-4 font-display text-4xl font-extrabold tracking-tight text-balance sm:text-5xl">
           Still scrolling? Your blog isn&apos;t going to judge itself.
         </h2>

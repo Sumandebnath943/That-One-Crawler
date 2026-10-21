@@ -1,5 +1,11 @@
 "use client";
 
+import { toast } from "@/lib/client/quirks";
+
+const TO_DARK = ["Lights off. The spider prefers it.", "Dark mode: now 40% more mysterious.", "Ah, the natural habitat."];
+const TO_LIGHT = ["Lights on. Squinting intensifies.", "Light mode. Bold choice.", "Who turned on the sun?"];
+let flips = 0;
+
 export function ThemeToggle() {
   const toggle = () => {
     const dark = !document.documentElement.classList.contains("dark");
@@ -9,6 +15,9 @@ export function ThemeToggle() {
     } catch {
       // Private mode: the toggle still works for this visit.
     }
+    flips += 1;
+    const quips = dark ? TO_DARK : TO_LIGHT;
+    toast(flips >= 6 && flips % 6 === 0 ? "Are you okay? That's a lot of flicking." : quips[flips % quips.length]);
   };
 
   return (

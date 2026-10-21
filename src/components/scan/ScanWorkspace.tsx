@@ -4,6 +4,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { isRunning, runScan, type ScanState } from "@/lib/client/crawl";
 import { loadScan, saveScan } from "@/lib/client/history";
+import { burstConfetti, toast } from "@/lib/client/quirks";
 import { useFeatures } from "@/lib/client/use-features";
 import { DEFAULT_PAGE_LIMIT, MAX_PAGES_LIMIT } from "@/lib/limits";
 import { buildRows, summarize } from "@/lib/seo/report";
@@ -20,7 +21,7 @@ function EmptyWorkspace() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-14 sm:px-6">
       <div className="flex items-center gap-4">
-        <Mascot className="size-20 shrink-0" />
+        <Mascot pokeable className="size-20 shrink-0" />
         <h1 className="font-display text-4xl font-extrabold tracking-tight">Who are we judging today?</h1>
       </div>
       <div className="mt-8">
@@ -31,6 +32,24 @@ function EmptyWorkspace() {
       </div>
     </div>
   );
+}
+
+/** A little reaction when a live scan finishes: confetti for great blogs, moral support for rough ones. */
+function celebrate(final: ScanState) {
+  if (final.phase === "stopped") {
+    toast("Stopped. Here's what we judged so far.");
+    return;
+  }
+  const score = summarize(buildRows(final.pages, final.robots)).avgScore;
+  if (score === null) return;
+  if (score >= 85) {
+    burstConfetti();
+    toast("Fine. You're good at this. 🎉");
+  } else if (score < 30) {
+    toast("Deep breaths. Start with the critical ones.");
+  } else {
+    toast("Verdict's in. Judgment is final.");
+  }
 }
 
 function Notice({ tone, title, children }: { tone: "warn" | "crit"; title: string; children: ReactNode }) {
@@ -76,6 +95,7 @@ export function ScanWorkspace() {
       controller.signal,
     ).then(async (final) => {
       if (!live() || final.phase === "error") return;
+      celebrate(final);
       if (await saveScan(final)) {
         setSavedId(final.id);
         // Swap ?url= for ?id= so a refresh shows this result instead of re-crawling.
@@ -104,6 +124,22 @@ export function ScanWorkspace() {
       alive = false;
     };
   }, [scanId, scanUrl]);
+
+  // While a scan runs, the browser tab shows its progress (handy when you wander off to another tab).
+  const progressTitle =
+    scan && isRunning(scan.phase)
+      ? `(${scan.phase === "pagespeed" ? `${scan.psDone}/${scan.psTotal}` : scan.target ? `${scan.fetched}/${scan.target}` : scan.fetched}) Judging ${scan.domain || "your blog"}…`
+      : null;
+  useEffect(() => {
+    if (!progressTitle) return;
+    const previous = document.title;
+    document.title = progressTitle;
+    document.documentElement.dataset.scanning = "1";
+    return () => {
+      document.title = previous;
+      delete document.documentElement.dataset.scanning;
+    };
+  }, [progressTitle]);
 
   const rows = useMemo(() => (scan ? buildRows(scan.pages, scan.robots) : []), [scan]);
   const summary = useMemo(() => summarize(rows), [rows]);

@@ -2,6 +2,8 @@
 
 import { useMemo, useState } from "react";
 import { downloadCsv } from "@/lib/client/csv";
+import { toast } from "@/lib/client/quirks";
+import { Mascot, type Mood } from "../Mascot";
 import { ISSUES, SEVERITY_ORDER, type IssueCode, type PageRow } from "@/lib/seo/issues";
 import { verdictFor, type ReportSummary } from "@/lib/seo/report";
 import { urlKey } from "@/lib/seo/url";
@@ -99,7 +101,7 @@ export function Verdict({
   return (
     <div className="flex flex-col gap-5 rounded-2xl border-2 border-ink bg-card p-5 shadow-brutal sm:flex-row sm:items-center">
       <ScoreRing score={summary.avgScore} />
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <p className="text-xs font-bold tracking-wider text-ink-3 uppercase">
           {running ? "Verdict so far" : "The verdict"}
         </p>
@@ -121,8 +123,32 @@ export function Verdict({
           {durationMs !== null && <span>took {formatDuration(durationMs)}</span>}
         </p>
       </div>
+      <Mascot
+        pokeable
+        mood={moodFor(summary.avgScore)}
+        title={`The crawler looks ${MOOD_WORDS[moodFor(summary.avgScore)]}`}
+        className="hidden size-24 shrink-0 sm:block"
+      />
     </div>
   );
+}
+
+const MOOD_WORDS: Record<Mood, string> = {
+  cool: "impressed (sunglasses on)",
+  happy: "pleased",
+  smirk: "smug",
+  meh: "unimpressed",
+  shocked: "horrified",
+};
+
+/** How the crawler feels about your average score. */
+export function moodFor(score: number | null): Mood {
+  if (score === null) return "shocked";
+  if (score >= 85) return "cool";
+  if (score >= 70) return "happy";
+  if (score >= 50) return "smirk";
+  if (score >= 30) return "meh";
+  return "shocked";
 }
 
 const CARDS: { filter: IssueFilter; label: string; count: (s: ReportSummary) => number; tone: string }[] = [
@@ -298,7 +324,10 @@ export function Report({
             )}
             <button
               type="button"
-              onClick={() => downloadCsv(sorted, domain)}
+              onClick={() => {
+                downloadCsv(sorted, domain);
+                toast("CSV downloaded. Spreadsheet crying session: ready.");
+              }}
               disabled={!sorted.length}
               className="h-10 rounded-lg border-2 border-ink bg-lime px-3 text-sm font-bold text-lime-ink transition hover:-translate-y-0.5 hover:shadow-brutal-sm disabled:opacity-50"
             >

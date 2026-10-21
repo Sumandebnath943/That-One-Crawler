@@ -16,7 +16,7 @@ export default function Home() {
         <Faq />
         <FinalCta />
       </main>
-      <SiteFooter />
+      <SiteFooter landing />
     </>
   );
 }

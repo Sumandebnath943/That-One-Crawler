@@ -49,7 +49,7 @@ export function ProgressPanel({ scan, onStop }: { scan: ScanState; onStop: () =>
       aria-live="polite"
       className="rise flex flex-col gap-4 rounded-2xl border-2 border-ink bg-card p-5 shadow-brutal sm:flex-row sm:items-center"
     >
-      <Mascot className="wobble size-20 shrink-0 self-center" />
+      <Mascot pokeable className="wobble size-20 shrink-0 self-center" />
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <h2 className="font-display text-2xl font-extrabold">{label}…</h2>
@@ -64,12 +64,25 @@ export function ProgressPanel({ scan, onStop }: { scan: ScanState; onStop: () =>
           </span>
         </div>
         <p className="mt-1 text-ink-2">{quips[tick % quips.length]}</p>
-        <div className="mt-3 h-4 overflow-hidden rounded-full border-2 border-ink bg-paper">
-          {fraction === null ? (
-            <div className="bar-indeterminate h-full w-2/5 rounded-full bg-lime" />
-          ) : (
-            <div className="h-full rounded-full bg-lime transition-[width] duration-500" style={{ width: `${Math.max(3, fraction * 100)}%` }} />
-          )}
+        <div className="relative mt-8">
+          <div className="h-4 overflow-hidden rounded-full border-2 border-ink bg-paper">
+            {fraction === null ? (
+              <div className="bar-indeterminate h-full w-2/5 rounded-full bg-lime" />
+            ) : (
+              <div
+                className="h-full rounded-full bg-lime transition-[width] duration-500"
+                style={{ width: `${Math.max(3, fraction * 100)}%` }}
+              />
+            )}
+          </div>
+          {/* A tiny crawler walking the bar: patrolling while we don't know the total, riding the edge once we do. */}
+          <div
+            aria-hidden
+            className={`absolute -top-6 size-7 ${fraction === null ? "crawl-patrol" : "transition-[left] duration-500"}`}
+            style={fraction === null ? undefined : { left: `calc(${Math.max(3, fraction * 100)}% - 1.1rem)` }}
+          >
+            <Mascot className="crawl-bob size-7" follow={false} />
+          </div>
         </div>
         <ul className="mt-2 space-y-0.5 font-mono text-xs text-ink-3">
           {scan.active.slice(0, 3).map((url) => (

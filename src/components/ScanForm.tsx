@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useId, useState, type FormEvent } from "react";
 import { DEFAULT_PAGE_LIMIT, PAGE_LIMIT_OPTIONS, PAGESPEED_PAGE_LIMIT } from "@/lib/limits";
+import { signalForm } from "@/lib/client/quirks";
 import { useFeatures } from "@/lib/client/use-features";
 import { normalizeInputUrl } from "@/lib/seo/url";
 
@@ -35,9 +36,11 @@ export function ScanForm({ compact = false, defaultUrl = "" }: { compact?: boole
     if (!normalized) {
       setError(BAD_URL_QUIPS[quip % BAD_URL_QUIPS.length]);
       setQuip((q) => q + 1);
+      signalForm("invalid");
       return;
     }
     setError(null);
+    signalForm("submit");
     router.push(buildScanHref(normalized, maxPages, pagespeed && Boolean(features?.pagespeed)));
   };
 
@@ -56,7 +59,12 @@ export function ScanForm({ compact = false, defaultUrl = "" }: { compact?: boole
           autoComplete="url"
           spellCheck={false}
           value={url}
-          onChange={(e) => setUrl(e.target.value)}
+          onFocus={() => signalForm(url ? "typing" : "focus")}
+          onBlur={() => !url && signalForm("idle")}
+          onChange={(e) => {
+            if (!url && e.target.value) signalForm("typing");
+            setUrl(e.target.value);
+          }}
           placeholder="your-blog-that-definitely-has-no-issues.com"
           aria-invalid={Boolean(error)}
           aria-describedby={error ? `${id}-error` : undefined}

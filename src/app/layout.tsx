@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { GlobalQuirks } from "@/components/quirks/GlobalQuirks";
 import { Bricolage_Grotesque, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -38,8 +39,9 @@ export const viewport: Viewport = {
   ],
 };
 
-// Runs before paint so dark-mode visitors don't get flashed with paper-white.
-const themeScript = `(function(){try{var t=localStorage.getItem("toc-theme");var d=t?t==="dark":matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",d)}catch(e){}})()`;
+// Runs before paint so dark-mode visitors don't get flashed with paper-white,
+// and Crawl Daddy mode (an easter egg) survives page loads within the visit.
+const themeScript = `(function(){try{var t=localStorage.getItem("toc-theme");var d=t?t==="dark":matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",d);if(sessionStorage.getItem("toc-daddy")==="1")document.documentElement.classList.add("daddy")}catch(e){}})()`;
 
 export default function RootLayout({ children }: Readonly<{ children: ReactNode }>) {
   return (
@@ -51,7 +53,10 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeScript }} />
       </head>
-      <body className="flex min-h-full flex-col bg-paper font-sans text-ink">{children}</body>
+      <body className="flex min-h-full flex-col bg-paper font-sans text-ink">
+        {children}
+        <GlobalQuirks />
+      </body>
     </html>
   );
 }
