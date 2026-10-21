@@ -3,7 +3,11 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { deleteScan, listScans, type ScanSummary } from "@/lib/client/history";
+import { DEFAULT_PAGE_LIMIT } from "@/lib/limits";
+import { buildScanHref } from "./ScanForm";
 import { ScoreBadge } from "./scan/bits";
+
+const RESCAN_AFTER_MS = 7 * 24 * 60 * 60 * 1000;
 
 function timeAgo(ms: number, now: number): string {
   const minutes = Math.round((now - ms) / 60_000);
@@ -49,16 +53,31 @@ export function RecentScans() {
           <span className="text-xs text-ink-3">Saved in this browser only</span>
         </div>
         <ul className="divide-y-2 divide-dashed divide-line">
-          {scans.slice(0, 6).map((scan) => (
-            <li key={scan.id} className="flex items-center gap-3 py-2.5">
+          {scans.slice(0, 6).map((scan, index) => {
+            // Nudge a rescan on the newest scan of each site once it's a week old.
+            const newestForSite = scans.findIndex((s) => s.domain === scan.domain) === index;
+            const stale = newestForSite && now - scan.startedAt > RESCAN_AFTER_MS;
+            return (
+            <li key={scan.id} className="flex flex-wrap items-center gap-3 py-2.5">
               <ScoreBadge score={scan.avgScore} />
               <Link href={`/scan?id=${scan.id}`} className="min-w-0 flex-1 hover:underline">
                 <span className="block truncate font-mono text-sm font-semibold">{scan.domain || scan.startUrl}</span>
                 <span className="block text-xs text-ink-3">
-                  {scan.pageCount} pages · {scan.critical} critical · {timeAgo(scan.startedAt, now)}
+                  {scan.pageCount} pages · {scan.critical} critical
+                  {scan.avgAiScore !== undefined && scan.avgAiScore !== null ? ` · AI ready ${scan.avgAiScore}` : ""} ·{" "}
+                  {timeAgo(scan.startedAt, now)}
                   {scan.phase === "stopped" ? " · stopped early" : ""}
                 </span>
               </Link>
+              {stale && (
+                <Link
+                  href={buildScanHref(scan.startUrl, DEFAULT_PAGE_LIMIT, false)}
+                  className="rounded-full border-2 border-ink bg-lime px-3 py-1 text-xs font-bold text-lime-ink"
+                  title="It's been over a week. See what changed."
+                >
+                  Time for a rescan?
+                </Link>
+              )}
               <button
                 type="button"
                 onClick={() => remove(scan.id)}
@@ -68,7 +87,8 @@ export function RecentScans() {
                 Forget
               </button>
             </li>
-          ))}
+            );
+          })}
         </ul>
       </div>
     </section>

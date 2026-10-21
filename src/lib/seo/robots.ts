@@ -5,6 +5,8 @@ export const CRAWLER_TOKEN = "thatonecrawler";
 export interface ParsedRobots {
   sitemaps: string[];
   rules: RobotsRules;
+  /** True when the rules come from a group naming ThatOneCrawler (an explicit opt-out we obey). */
+  ownGroup: boolean;
 }
 
 interface Group {
@@ -59,6 +61,7 @@ export function parseRobots(text: string, token = CRAWLER_TOKEN): ParsedRobots {
       allow: chosen.flatMap((g) => g.allow),
       disallow: chosen.flatMap((g) => g.disallow),
     },
+    ownGroup: ours.length > 0,
   };
 }
 

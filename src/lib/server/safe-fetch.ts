@@ -2,10 +2,11 @@ import { lookup } from "node:dns/promises";
 import { isIP } from "node:net";
 import { gunzipSync } from "node:zlib";
 import type { RedirectHop } from "@/lib/seo/types";
+import { SITE_URL } from "@/lib/site";
 import { bareHost } from "@/lib/seo/url";
 
-export const USER_AGENT =
-  "Mozilla/5.0 (compatible; ThatOneCrawler/1.0; +https://github.com/Sumandebnath943/That-One-Crawler)";
+/** Identifies us to the sites we scan; the /bot page explains the crawler and how to opt out. */
+export const USER_AGENT = `Mozilla/5.0 (compatible; ThatOneCrawler/1.0; +${SITE_URL}/bot)`;
 
 /** Thrown for URLs we refuse to fetch (private networks, odd protocols). */
 export class BlockedUrlError extends Error {}
@@ -76,6 +77,8 @@ export interface FetchOptions {
   maxRedirects?: number;
   accept?: string;
   signal?: AbortSignal;
+  /** HEAD skips downloading the body (used by the link checker). */
+  method?: "GET" | "HEAD";
 }
 
 export interface FetchResult {
@@ -174,6 +177,7 @@ export async function safeFetch(url: string, opts: FetchOptions = {}): Promise<F
       const target = new URL(current);
       await assertPublicUrl(target);
       const res = await fetch(target, {
+        method: opts.method ?? "GET",
         redirect: "manual",
         signal,
         headers: {
@@ -198,8 +202,17 @@ export async function safeFetch(url: string, opts: FetchOptions = {}): Promise<F
         continue;
       }
 
-      const { body, truncated } = await readLimited(res, maxBytes);
       const declared = Number(res.headers.get("content-length"));
+      if (opts.method === "HEAD") {
+        await res.body?.cancel().catch(() => {});
+        return result({
+          status: res.status,
+          headers: res.headers,
+          sizeBytes: Number.isFinite(declared) ? declared : 0,
+          timeMs: Math.round(performance.now() - started),
+        });
+      }
+      const { body, truncated } = await readLimited(res, maxBytes);
       return result({
         status: res.status,
         headers: res.headers,

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ScanState } from "@/lib/client/crawl";
-import { CRAWLING_QUIPS, DISCOVERY_QUIPS, PAGESPEED_QUIPS } from "@/lib/client/jokes";
+import { CRAWLING_QUIPS, DISCOVERY_QUIPS, LINK_QUIPS, PAGESPEED_QUIPS } from "@/lib/client/jokes";
 import { displayPath } from "@/lib/seo/url";
 import { Mascot } from "../Mascot";
 
@@ -33,6 +33,11 @@ export function ProgressPanel({ scan, onStop }: { scan: ScanState; onStop: () =>
     quips = PAGESPEED_QUIPS;
     done = scan.psDone;
     total = scan.psTotal;
+  } else if (scan.phase === "links") {
+    label = "Checking links and images";
+    quips = LINK_QUIPS;
+    done = scan.lcDone;
+    total = scan.lcTotal;
   } else {
     label = scan.method === "sitemap" ? "Reading pages from your sitemap" : "Following links";
     quips = CRAWLING_QUIPS;
@@ -42,7 +47,8 @@ export function ProgressPanel({ scan, onStop }: { scan: ScanState; onStop: () =>
 
   const fraction = total ? Math.min(1, done / total) : null;
   const rate = elapsedSeconds > 3 && done > 0 ? done / elapsedSeconds : 0;
-  const remaining = total && rate && done >= 6 ? (total - done) / rate : null;
+  // Only the crawl phase has a steady enough rate (since the start) to estimate from.
+  const remaining = scan.phase === "crawling" && total && rate && done >= 6 ? (total - done) / rate : null;
 
   return (
     <section

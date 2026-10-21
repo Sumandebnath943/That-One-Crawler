@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import { GlobalQuirks } from "@/components/quirks/GlobalQuirks";
+import { AUTHOR, HOME_TITLE, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import { Bricolage_Grotesque, Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -8,28 +9,43 @@ const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
 const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 const bricolage = Bricolage_Grotesque({ variable: "--font-bricolage", subsets: ["latin"] });
 
-// Vercel sets VERCEL_PROJECT_PRODUCTION_URL; NEXT_PUBLIC_SITE_URL wins if you add a custom domain.
-const siteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ||
-  (process.env.VERCEL_PROJECT_PRODUCTION_URL
-    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
-    : "http://localhost:3000");
-
 export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: {
-    default: "That One Crawler: brutally honest SEO audits for blogs",
-    template: "%s · That One Crawler",
+  // Canonical URLs and social images always point at the production domain.
+  metadataBase: new URL(SITE_URL),
+  title: { default: HOME_TITLE, template: `%s · ${SITE_NAME}` },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  authors: [{ name: AUTHOR.name, url: AUTHOR.url }],
+  creator: AUTHOR.name,
+  publisher: AUTHOR.name,
+  category: "technology",
+  keywords: [
+    "free SEO audit tool",
+    "blog SEO checker",
+    "website SEO audit",
+    "SEO crawler",
+    "broken link checker",
+    "keyword cannibalization checker",
+    "GEO checker",
+    "AEO checker",
+    "AI search readiness",
+    "meta tag checker",
+  ],
+  // Let search engines and AI tools show full snippets and large image previews.
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: { index: true, follow: true, "max-snippet": -1, "max-image-preview": "large", "max-video-preview": -1 },
   },
-  description:
-    "Paste your blog URL. We crawl every page and tell you what's wrong: missing H1s, thin content, duplicate titles, broken pages and more. Free, no signup, no feelings spared.",
-  applicationName: "That One Crawler",
   openGraph: {
-    title: "That One Crawler",
-    description: "Your blog has issues. We'll find every single one.",
+    title: HOME_TITLE,
+    description: "Your blog has issues. This free SEO audit finds every single one, for Google and for AI search.",
     type: "website",
+    siteName: SITE_NAME,
+    locale: "en_US",
+    url: "/",
   },
-  twitter: { card: "summary_large_image" },
+  twitter: { card: "summary_large_image", title: HOME_TITLE, description: SITE_DESCRIPTION },
 };
 
 export const viewport: Viewport = {

@@ -1,12 +1,16 @@
 import { DEFAULT_PAGE_LIMIT, MAX_PAGES_LIMIT } from "@/lib/limits";
 import { DiscoverError, discoverSite } from "@/lib/server/discover";
 import { jsonError, readJson } from "@/lib/server/http";
+import { rateLimit } from "@/lib/server/rate-limit";
 import { BlockedUrlError } from "@/lib/server/safe-fetch";
 import { normalizeInputUrl } from "@/lib/seo/url";
 
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  const limited = rateLimit(request, "discover", 20, 60_000);
+  if (limited) return limited;
+
   const body = await readJson(request);
   const url = typeof body?.url === "string" ? normalizeInputUrl(body.url) : null;
   if (!url) return jsonError("That doesn't look like a URL. Even we can't crawl vibes.", 400);

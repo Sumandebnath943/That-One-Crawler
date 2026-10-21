@@ -127,11 +127,14 @@ async function collectSitemapUrls(
   }
 
   // Most recently updated first (stable, so undated entries keep sitemap order).
-  const ordered = [...entries].sort((a, b) => lastmodTime(b) - lastmodTime(a));
+  const chosen = [...entries].sort((a, b) => lastmodTime(b) - lastmodTime(a)).slice(0, limit);
+  const lastmods: Record<string, string> = {};
+  for (const entry of chosen) if (entry.lastmod) lastmods[urlKey(entry.loc)] = entry.lastmod;
   return {
-    urls: ordered.slice(0, limit).map((entry) => entry.loc),
+    urls: chosen.map((entry) => entry.loc),
     sources,
     truncated: truncated || entries.length > limit,
+    lastmods,
   };
 }
 
@@ -160,7 +163,7 @@ export async function discoverSite(inputUrl: string, limit: number, signal: Abor
     );
   }
 
-  let robots: ParsedRobots = { sitemaps: [], rules: { allow: [], disallow: [] } };
+  let robots: ParsedRobots = { sitemaps: [], rules: { allow: [], disallow: [] }, ownGroup: false };
   let robotsFound = false;
   const robotsRes = await safeFetch(`${origin}/robots.txt`, {
     accept: "text/plain,*/*;q=0.8",
@@ -193,7 +196,7 @@ export async function discoverSite(inputUrl: string, limit: number, signal: Abor
     baseDomain,
     scope,
     homepageStatus: home.status,
-    robots: { found: robotsFound, sitemaps: robots.sitemaps, rules: robots.rules },
+    robots: { found: robotsFound, sitemaps: robots.sitemaps, rules: robots.rules, ownGroup: robots.ownGroup },
     sitemap,
     warnings,
   };

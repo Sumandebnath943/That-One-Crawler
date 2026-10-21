@@ -13,9 +13,10 @@ const BAD_URL_QUIPS = [
   "Hmm. That's not a URL. That's a cry for help.",
 ];
 
-export function buildScanHref(url: string, maxPages: number, pagespeed: boolean): string {
+export function buildScanHref(url: string, maxPages: number, pagespeed: boolean, checkLinks = true): string {
   const params = new URLSearchParams({ url, max: String(maxPages) });
   if (pagespeed) params.set("ps", "1");
+  if (!checkLinks) params.set("links", "0");
   return `/scan?${params}`;
 }
 
@@ -28,6 +29,7 @@ export function ScanForm({ compact = false, defaultUrl = "" }: { compact?: boole
   const [showOptions, setShowOptions] = useState(false);
   const [maxPages, setMaxPages] = useState<number>(DEFAULT_PAGE_LIMIT);
   const [pagespeed, setPagespeed] = useState(false);
+  const [checkLinks, setCheckLinks] = useState(true);
   const [quip, setQuip] = useState(0);
 
   const submit = (event: FormEvent) => {
@@ -41,7 +43,7 @@ export function ScanForm({ compact = false, defaultUrl = "" }: { compact?: boole
     }
     setError(null);
     signalForm("submit");
-    router.push(buildScanHref(normalized, maxPages, pagespeed && Boolean(features?.pagespeed)));
+    router.push(buildScanHref(normalized, maxPages, pagespeed && Boolean(features?.pagespeed), checkLinks));
   };
 
   return (
@@ -139,6 +141,18 @@ export function ScanForm({ compact = false, defaultUrl = "" }: { compact?: boole
                     ? "Not set up on this deployment."
                     : "Checking…"}
               </span>
+            </span>
+          </label>
+          <label className="flex items-start gap-2">
+            <input
+              type="checkbox"
+              checked={checkLinks}
+              onChange={(e) => setCheckLinks(e.target.checked)}
+              className="mt-0.5 size-4 accent-[var(--ink)]"
+            />
+            <span>
+              <span className="font-semibold">Check links &amp; images</span>
+              <span className="block text-ink-3">Finds broken links and heavy images. Adds a little time.</span>
             </span>
           </label>
           <p className="text-ink-3 sm:col-span-2">

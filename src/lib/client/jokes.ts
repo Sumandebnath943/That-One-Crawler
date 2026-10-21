@@ -27,4 +27,11 @@ export const PAGESPEED_QUIPS = [
   "Watching your Largest Contentful Paint dry",
 ];
 
+export const LINK_QUIPS = [
+  "Clicking every link so your readers don't have to",
+  "Knocking on other people's websites too. Politely.",
+  "Weighing your images. Some of them have been eating well.",
+  "Finding out which links lead nowhere",
+];
+
 export const RECENT_EMPTY = "No judgments yet. Your blog is still innocent until proven guilty.";

@@ -2,9 +2,11 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { isRunning, runScan, type ScanState } from "@/lib/client/crawl";
+import { loadBrandRules, siteKeyFor } from "@/lib/client/brand-rules";
+import { contextFor, isRunning, runScan, type ScanState } from "@/lib/client/crawl";
 import { loadScan, saveScan } from "@/lib/client/history";
 import { burstConfetti, toast } from "@/lib/client/quirks";
+import { downloadHtmlReport } from "@/lib/client/report-html";
 import { useFeatures } from "@/lib/client/use-features";
 import { DEFAULT_PAGE_LIMIT, MAX_PAGES_LIMIT } from "@/lib/limits";
 import { buildRows, summarize } from "@/lib/seo/report";
@@ -13,9 +15,11 @@ import { prettyUrl, urlKey } from "@/lib/seo/url";
 import { Mascot } from "../Mascot";
 import { RecentScans } from "../RecentScans";
 import { buildScanHref, ScanForm } from "../ScanForm";
+import { BrandRulesDialog } from "./BrandRulesDialog";
 import { PageDrawer } from "./PageDrawer";
+import { ChangesPanel, KeywordsPanel, LinksPanel, PlanPanel } from "./Panels";
 import { ProgressPanel } from "./ProgressPanel";
-import { Report, Verdict } from "./Report";
+import { PagesTable, Report, Verdict } from "./Report";
 
 function EmptyWorkspace() {
   return (
@@ -40,7 +44,7 @@ function celebrate(final: ScanState) {
     toast("Stopped. Here's what we judged so far.");
     return;
   }
-  const score = summarize(buildRows(final.pages, final.robots)).avgScore;
+  const score = summarize(buildRows(final.pages, contextFor(final))).avgScore;
   if (score === null) return;
   if (score >= 85) {
     burstConfetti();
@@ -61,6 +65,9 @@ function Notice({ tone, title, children }: { tone: "warn" | "crit"; title: strin
   );
 }
 
+const headerButton =
+  "rounded-xl border-2 border-ink bg-card px-3 py-2 text-sm font-bold shadow-brutal-sm transition hover:-translate-y-0.5";
+
 export function ScanWorkspace() {
   const params = useSearchParams();
   const router = useRouter();
@@ -70,11 +77,13 @@ export function ScanWorkspace() {
   const scanId = params.get("id");
   const maxPages = Math.min(Math.max(Number(params.get("max")) || DEFAULT_PAGE_LIMIT, 1), MAX_PAGES_LIMIT);
   const wantPagespeed = params.get("ps") === "1";
+  const checkLinks = params.get("links") !== "0";
 
   const [scan, setScan] = useState<ScanState | null>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
   const [missing, setMissing] = useState<string | null>(null);
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const stopRef = useRef<(() => void) | null>(null);
   const currentId = useRef<string | null>(null);
 
@@ -86,7 +95,7 @@ export function ScanWorkspace() {
     stopRef.current = () => controller.abort("stop");
 
     runScan(
-      { url: scanUrl, maxPages, pagespeed: wantPagespeed },
+      { url: scanUrl, maxPages, pagespeed: wantPagespeed, checkLinks, brandRules: loadBrandRules(siteKeyFor(scanUrl)) },
       (state) => {
         if (!live()) return;
         currentId.current = state.id;
@@ -104,7 +113,7 @@ export function ScanWorkspace() {
     });
 
     return () => controller.abort("unmount");
-  }, [scanUrl, maxPages, wantPagespeed, router]);
+  }, [scanUrl, maxPages, wantPagespeed, checkLinks, router]);
 
   // A ?id= means "show a saved scan".
   useEffect(() => {
@@ -128,7 +137,15 @@ export function ScanWorkspace() {
   // While a scan runs, the browser tab shows its progress (handy when you wander off to another tab).
   const progressTitle =
     scan && isRunning(scan.phase)
-      ? `(${scan.phase === "pagespeed" ? `${scan.psDone}/${scan.psTotal}` : scan.target ? `${scan.fetched}/${scan.target}` : scan.fetched}) Judging ${scan.domain || "your blog"}…`
+      ? `(${
+          scan.phase === "pagespeed"
+            ? `${scan.psDone}/${scan.psTotal}`
+            : scan.phase === "links"
+              ? `${scan.lcDone}/${scan.lcTotal} links`
+              : scan.target
+                ? `${scan.fetched}/${scan.target}`
+                : scan.fetched
+        }) Judging ${scan.domain || "your blog"}…`
       : null;
   useEffect(() => {
     if (!progressTitle) return;
@@ -141,16 +158,19 @@ export function ScanWorkspace() {
     };
   }, [progressTitle]);
 
-  const rows = useMemo(() => (scan ? buildRows(scan.pages, scan.robots) : []), [scan]);
+  const rows = useMemo(() => (scan ? buildRows(scan.pages, contextFor(scan)) : []), [scan]);
   const summary = useMemo(() => summarize(rows), [rows]);
   const openRow = openKey ? rows.find((r) => urlKey(r.finalUrl) === openKey) : undefined;
   const closeDrawer = useCallback(() => setOpenKey(null), []);
+  const closeRules = useCallback(() => setRulesOpen(false), []);
 
-  const updatePage = (key: string, patch: Partial<CrawledPage>) => {
-    if (!scan) return;
-    const next = { ...scan, pages: scan.pages.map((p) => (urlKey(p.finalUrl) === key ? { ...p, ...patch } : p)) };
+  const commit = (next: ScanState) => {
     setScan(next);
     if (!isRunning(next.phase) && savedId === next.id) void saveScan(next);
+  };
+  const updatePage = (key: string, patch: Partial<CrawledPage>) => {
+    if (!scan) return;
+    commit({ ...scan, pages: scan.pages.map((p) => (urlKey(p.finalUrl) === key ? { ...p, ...patch } : p)) });
   };
 
   if (!scanUrl && !scanId) return <EmptyWorkspace />;
@@ -177,7 +197,10 @@ export function ScanWorkspace() {
   }
 
   const running = isRunning(scan.phase);
-  const rescan = () => router.push(buildScanHref(scan.settings.url, scan.settings.maxPages, scan.settings.pagespeed));
+  const site = scan.domain || siteKeyFor(scan.settings.url);
+  const brand = scan.settings.brandRules;
+  const rescan = () =>
+    router.push(buildScanHref(scan.settings.url, scan.settings.maxPages, scan.settings.pagespeed, scan.settings.checkLinks));
 
   return (
     <div className="mx-auto max-w-6xl space-y-5 px-4 py-8 sm:px-6">
@@ -200,16 +223,30 @@ export function ScanWorkspace() {
             {scan.scope ? ` under ${scan.scope}` : ""}
             {scan.robotsFound ? " · robots.txt found" : ""}
             {scan.sitemapCount ? ` · ${scan.sitemapCount}${scan.sitemapTruncated ? "+" : ""} URLs in sitemap` : ""}
+            {brand ? " · brand rules on" : ""}
           </p>
         </div>
         {!running && (
-          <button
-            type="button"
-            onClick={rescan}
-            className="rounded-xl border-2 border-ink bg-card px-4 py-2 font-bold shadow-brutal-sm transition hover:-translate-y-0.5"
-          >
-            Rescan
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => setRulesOpen(true)} className={headerButton}>
+              Brand rules{brand ? " ✓" : ""}
+            </button>
+            {rows.length > 0 && (
+              <button
+                type="button"
+                onClick={() => {
+                  downloadHtmlReport(scan, rows, summary);
+                  toast("Report downloaded. Email it to someone who needs to hear it.");
+                }}
+                className={headerButton}
+              >
+                Download report
+              </button>
+            )}
+            <button type="button" onClick={rescan} className={`${headerButton} bg-lime text-lime-ink`}>
+              Rescan
+            </button>
+          </div>
         )}
       </div>
 
@@ -246,7 +283,25 @@ export function ScanWorkspace() {
             method={scan.method}
             durationMs={scan.finishedAt ? scan.finishedAt - scan.startedAt : null}
           />
-          <Report rows={rows} summary={summary} domain={scan.domain} onOpen={setOpenKey} />
+          <Report
+            summary={summary}
+            renderTab={(tab, issueFilter, setIssueFilter) => {
+              if (tab === "links") return <LinksPanel rows={rows} scan={scan} onOpen={setOpenKey} />;
+              if (tab === "keywords") return <KeywordsPanel rows={rows} onOpen={setOpenKey} />;
+              if (tab === "changes") return <ChangesPanel scan={scan} rows={rows} onOpen={setOpenKey} />;
+              if (tab === "plan") return <PlanPanel scan={scan} rows={rows} summary={summary} onPlan={(plan) => commit({ ...scan, plan })} />;
+              return (
+                <PagesTable
+                  rows={rows}
+                  summary={summary}
+                  domain={scan.domain}
+                  issueFilter={issueFilter}
+                  onIssueFilter={setIssueFilter}
+                  onOpen={setOpenKey}
+                />
+              );
+            }}
+          />
           {(scan.skipped > 0 || scan.failed > 0) && (
             <p className="text-xs text-ink-3">
               {scan.skipped > 0 && `${scan.skipped} non-HTML URLs (feeds, files) skipped. `}
@@ -267,8 +322,18 @@ export function ScanWorkspace() {
         <PageDrawer
           row={openRow}
           features={features}
+          brand={brand}
           onClose={closeDrawer}
           onUpdate={(patch) => updatePage(urlKey(openRow.finalUrl), patch)}
+        />
+      )}
+
+      {rulesOpen && (
+        <BrandRulesDialog
+          site={site}
+          initial={brand}
+          onClose={closeRules}
+          onSaved={(rules) => commit({ ...scan, settings: { ...scan.settings, brandRules: rules } })}
         />
       )}
     </div>

@@ -130,6 +130,14 @@ export const COLUMNS: Column[] = [
   },
   { key: "h1", label: "H1", group: "basic", width: "min-w-48 max-w-64", sort: (r) => r.h1[0] ?? "", render: (r) => list(r.h1) },
   {
+    key: "keyword",
+    label: "Main keyword",
+    group: "basic",
+    width: "min-w-36 max-w-48",
+    sort: (r) => r.primaryKeyword?.phrase ?? "",
+    render: (r) => (r.primaryKeyword ? text(r.primaryKeyword.phrase, true) : dash),
+  },
+  {
     key: "meta",
     label: "Meta description",
     group: "basic",
@@ -199,6 +207,73 @@ export const COLUMNS: Column[] = [
     render: (r) => (r.offsiteRedirect ? text(`→ ${r.offsiteRedirect}`, true) : list(r.redirectedFrom.map(displayPath))),
   },
   { key: "lang", label: "Lang", group: "technical", width: "w-16", sort: (r) => r.lang, render: (r) => text(r.lang, true) },
+  {
+    key: "inbound",
+    label: "Linked from",
+    group: "technical",
+    width: "w-24",
+    sort: (r) => (r.hasContent ? r.inbound : null),
+    render: (r) =>
+      r.hasContent ? (
+        <span className={`font-mono text-xs font-bold ${r.inbound === 0 ? "text-warn" : ""}`}>{r.inbound}</span>
+      ) : (
+        dash
+      ),
+  },
+  {
+    key: "depth",
+    label: "Depth",
+    group: "technical",
+    width: "w-16",
+    sort: (r) => r.depth,
+    render: (r) => (r.depth === null ? dash : <span className="font-mono text-xs">{r.depth}</span>),
+  },
+  {
+    key: "brokenLinks",
+    label: "Broken links",
+    group: "technical",
+    width: "w-24",
+    sort: (r) => r.brokenOutlinks.length,
+    render: (r) =>
+      r.hasContent ? (
+        <span className={`font-mono text-xs font-bold ${r.brokenOutlinks.length ? "text-crit" : "text-good"}`}>
+          {r.brokenOutlinks.length}
+        </span>
+      ) : (
+        dash
+      ),
+  },
+  {
+    key: "aiScore",
+    label: "AI ready",
+    group: "content",
+    width: "w-20",
+    sort: (r) => r.aiScore,
+    render: (r) => <MetricBadge value={r.aiScore} good={70} ok={50} />,
+  },
+  {
+    key: "ease",
+    label: "Ease",
+    group: "content",
+    width: "w-16",
+    sort: (r) => r.readability.readingEase,
+    render: (r) => <MetricBadge value={r.readability.readingEase} good={60} ok={30} />,
+  },
+  {
+    key: "updated",
+    label: "Updated",
+    group: "content",
+    width: "w-28",
+    sort: (r) => r.lastUpdated ?? "",
+    render: (r) =>
+      r.lastUpdated ? (
+        <span className={`font-mono text-xs ${r.isPost && (r.monthsSinceUpdate ?? 0) >= 12 ? "font-bold text-warn" : ""}`}>
+          {r.lastUpdated.slice(0, 10)}
+        </span>
+      ) : (
+        dash
+      ),
+  },
   {
     key: "words",
     label: "Words",

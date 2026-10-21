@@ -1,5 +1,6 @@
 import { buildRows, summarize } from "@/lib/seo/report";
-import type { CrawlMethod, ScanPhase, ScanState } from "./crawl";
+import { upgradePage } from "@/lib/seo/types";
+import { contextFor, upgradeScan, type CrawlMethod, type ScanPhase, type ScanState } from "./crawl";
 
 // Scans live in the visitor's own browser (IndexedDB). No database, no accounts.
 
@@ -19,11 +20,12 @@ export interface ScanSummary {
   method: CrawlMethod | null;
   pageCount: number;
   avgScore: number | null;
+  avgAiScore?: number | null;
   critical: number;
 }
 
 export function summarizeScan(state: ScanState): ScanSummary {
-  const summary = summarize(buildRows(state.pages, state.robots));
+  const summary = summarize(buildRows(state.pages, contextFor(state)));
   return {
     id: state.id,
     startUrl: state.startUrl,
@@ -34,6 +36,7 @@ export function summarizeScan(state: ScanState): ScanSummary {
     method: state.method,
     pageCount: summary.total,
     avgScore: summary.avgScore,
+    avgAiScore: summary.avgAiScore,
     critical: summary.severityCounts.critical,
   };
 }
@@ -84,10 +87,21 @@ export async function loadScan(id: string): Promise<ScanState | null> {
     const tx = db.transaction(SCANS, "readonly");
     const scan = await result(tx.objectStore(SCANS).get(id) as IDBRequest<ScanState | undefined>);
     db.close();
-    return scan ?? null;
+    if (!scan) return null;
+    // Scans saved by older versions lack newer fields; fill them in so every check still works.
+    const upgraded = upgradeScan(scan);
+    return { ...upgraded, pages: upgraded.pages.map(upgradePage) };
   } catch {
     return null;
   }
+}
+
+/** Earlier saved scans of the same site (same domain and scope), newest first. */
+export async function previousScans(scan: Pick<ScanState, "id" | "domain" | "scope" | "startedAt">): Promise<ScanSummary[]> {
+  const label = `${scan.domain}${scan.scope ?? ""}`;
+  return (await listScans()).filter(
+    (s) => s.id !== scan.id && s.domain === label && s.startedAt < scan.startedAt && s.phase !== "error",
+  );
 }
 
 /** Save a finished (or stopped) scan. Returns false when storage isn't available. */
