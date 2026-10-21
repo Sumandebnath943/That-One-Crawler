@@ -98,6 +98,8 @@ export interface AiSuggestion {
   metaDescription: string;
   fixes: string[];
   model: string;
+  /** "Groq" or "Gemini". Missing on suggestions saved before Gemini support. */
+  provider?: string;
 }
 
 export interface FeatureFlags {

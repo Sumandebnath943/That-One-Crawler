@@ -15,7 +15,7 @@ It's the reprised version of Crawl Daddy (see [`legacy/crawl-daddy`](legacy/craw
 | Indexability | `noindex` (meta + `X-Robots-Tag`), robots.txt blocks, canonical tags pointing elsewhere |
 | Health | Broken pages (4xx/5xx/unreachable), redirects, off-site redirects, slow responses, pages that need JavaScript to render |
 | Social & schema | Open Graph, Twitter cards, JSON-LD types, author, publish date, hreflang |
-| Optional | Google PageSpeed (performance, SEO, accessibility, best practices, LCP, CLS, TBT) and AI-written title/meta suggestions via Groq |
+| Optional | Google PageSpeed (performance, SEO, accessibility, best practices, LCP, CLS, TBT) and AI-written title/meta suggestions via Groq or Gemini |
 
 Every issue in the report comes with why it matters and how to fix it. Results can be filtered, sorted and exported to CSV.
 
@@ -28,7 +28,7 @@ Browser (src/lib/client/crawl.ts)
   │  POST /api/discover   → follow redirects, read robots.txt, harvest sitemaps (newest posts first)
   │  POST /api/analyze    → fetch + parse 3 URLs per call, 2 calls in flight
   │  POST /api/pagespeed  → one PageSpeed Insights call (optional)
-  │  POST /api/ai         → one Groq call for a single page (optional)
+  │  POST /api/ai         → one Groq or Gemini call for a single page (optional)
   ▼
 Scores, issues and history computed and stored in the browser (IndexedDB)
 ```
@@ -44,7 +44,7 @@ Requires Node 20.9+.
 
 ```bash
 npm install
-cp .env.example .env.local   # optional: add GROQ_API_KEY / PAGESPEED_KEY
+cp .env.example .env.local   # optional: add GROQ_API_KEY or GEMINI_API_KEY, PAGESPEED_KEY
 npm run dev                  # http://localhost:3000
 ```
 
@@ -58,7 +58,7 @@ npm run dev                  # http://localhost:3000
 ## Deploying to Vercel (Hobby)
 
 1. On [vercel.com/new](https://vercel.com/new), import this GitHub repo. Vercel detects Next.js automatically, so there's nothing to configure.
-2. Optional: under **Settings → Environment Variables**, add `GROQ_API_KEY` (AI fixes) and/or `PAGESPEED_KEY` (PageSpeed), then redeploy.
+2. Optional: under **Settings → Environment Variables**, add `GROQ_API_KEY` or `GEMINI_API_KEY` (AI fixes) and/or `PAGESPEED_KEY` (PageSpeed), then redeploy. See `.env.example` for the optional model settings.
 3. Every push to `main` redeploys automatically.
 
 ## Project layout

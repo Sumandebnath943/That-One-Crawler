@@ -1,13 +1,38 @@
 import type { AiSuggestion } from "@/lib/seo/types";
 
 const GROQ_URL = "https://api.groq.com/openai/v1/chat/completions";
-const DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const GEMINI_URL = "https://generativelanguage.googleapis.com/v1beta/models";
+const DEFAULT_GROQ_MODEL = "llama-3.3-70b-versatile";
+// Stable, free-tier, minimal thinking by default: quick and cheap for short rewrites.
+const DEFAULT_GEMINI_MODEL = "gemini-3.5-flash-lite";
+const SYSTEM_PROMPT = "You are an expert SEO consultant for bloggers. Always answer with a single valid JSON object.";
 
-export function aiConfig() {
-  return {
-    key: process.env.GROQ_API_KEY || "",
-    model: process.env.GROQ_MODEL || DEFAULT_MODEL,
-  };
+export type AiProvider = "Groq" | "Gemini";
+
+export interface AiConfig {
+  provider: AiProvider;
+  key: string;
+  model: string;
+}
+
+/**
+ * Which AI provider to use. Groq wins when both keys are set, unless
+ * AI_PROVIDER=gemini says otherwise. Returns null when no key is configured.
+ */
+export function aiConfig(): AiConfig | null {
+  const groqKey = process.env.GROQ_API_KEY || "";
+  // GEMINI_KEY is what Crawl Daddy called it.
+  const geminiKey = process.env.GEMINI_API_KEY || process.env.GEMINI_KEY || "";
+  const groq: AiConfig | null = groqKey
+    ? { provider: "Groq", key: groqKey, model: process.env.GROQ_MODEL || DEFAULT_GROQ_MODEL }
+    : null;
+  const gemini: AiConfig | null = geminiKey
+    ? { provider: "Gemini", key: geminiKey, model: process.env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL }
+    : null;
+  const preferred = process.env.AI_PROVIDER?.trim().toLowerCase();
+  if (preferred === "gemini" && gemini) return gemini;
+  if (preferred === "groq" && groq) return groq;
+  return groq ?? gemini;
 }
 
 /** The subset of a page the browser sends us for analysis. */
@@ -80,7 +105,7 @@ Reply with a JSON object with exactly these keys:
 - "fixes": an array of exactly three strings, the most impactful fixes first, each with a short reason.`;
 }
 
-function parseSuggestion(content: string): Omit<AiSuggestion, "model"> | null {
+export function parseSuggestion(content: string): Omit<AiSuggestion, "model" | "provider"> | null {
   const candidates = [content, content.match(/\{[\s\S]*\}/)?.[0] ?? ""];
   for (const candidate of candidates) {
     try {
@@ -101,12 +126,14 @@ function parseSuggestion(content: string): Omit<AiSuggestion, "model"> | null {
   return null;
 }
 
-export async function suggestFixes(page: AiPageInput, signal?: AbortSignal): Promise<AiSuggestion> {
-  const { key, model } = aiConfig();
-  const timeout = AbortSignal.timeout(45_000);
+interface ProviderError {
+  error?: { message?: string };
+}
+
+async function askGroq({ key, model }: AiConfig, prompt: string, signal: AbortSignal): Promise<string> {
   const res = await fetch(GROQ_URL, {
     method: "POST",
-    signal: signal ? AbortSignal.any([timeout, signal]) : timeout,
+    signal,
     headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
     body: JSON.stringify({
       model,
@@ -114,22 +141,60 @@ export async function suggestFixes(page: AiPageInput, signal?: AbortSignal): Pro
       max_tokens: 900,
       response_format: { type: "json_object" },
       messages: [
-        {
-          role: "system",
-          content: "You are an expert SEO consultant for bloggers. Always answer with a single valid JSON object.",
-        },
-        { role: "user", content: buildPrompt(page) },
+        { role: "system", content: SYSTEM_PROMPT },
+        { role: "user", content: prompt },
       ],
     }),
   });
-
-  const data = (await res.json().catch(() => ({}))) as {
-    error?: { message?: string };
+  const data = (await res.json().catch(() => ({}))) as ProviderError & {
     choices?: { message?: { content?: string } }[];
   };
-  if (!res.ok) throw new Error(data.error?.message || `The AI provider answered ${res.status}`);
+  if (!res.ok) throw new Error(data.error?.message || `Groq answered ${res.status}`);
+  return data.choices?.[0]?.message?.content ?? "";
+}
 
-  const parsed = parseSuggestion(data.choices?.[0]?.message?.content ?? "");
+export interface GeminiResponse extends ProviderError {
+  candidates?: { finishReason?: string; content?: { parts?: { text?: string; thought?: boolean }[] } }[];
+}
+
+/** The answer text from a Gemini response, skipping any thought-summary parts. */
+export function geminiText(data: GeminiResponse): string {
+  const parts = data.candidates?.[0]?.content?.parts ?? [];
+  return parts
+    .filter((part) => !part.thought)
+    .map((part) => part.text ?? "")
+    .join("");
+}
+
+async function askGemini({ key, model }: AiConfig, prompt: string, signal: AbortSignal): Promise<string> {
+  const res = await fetch(`${GEMINI_URL}/${encodeURIComponent(model)}:generateContent`, {
+    method: "POST",
+    signal,
+    // Key goes in a header, not the URL, so it never shows up in logs.
+    headers: { "x-goog-api-key": key, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: [{ role: "user", parts: [{ text: prompt }] }],
+      generationConfig: {
+        responseMimeType: "application/json",
+        // Thinking tokens count against this limit, so leave plenty of room.
+        maxOutputTokens: 4096,
+      },
+    }),
+  });
+  const data = (await res.json().catch(() => ({}))) as GeminiResponse;
+  if (!res.ok) throw new Error(data.error?.message || `Gemini answered ${res.status}`);
+  return geminiText(data);
+}
+
+export async function suggestFixes(page: AiPageInput, signal?: AbortSignal): Promise<AiSuggestion> {
+  const config = aiConfig();
+  if (!config) throw new Error("No AI provider is configured.");
+  const timeout = AbortSignal.timeout(45_000);
+  const combined = signal ? AbortSignal.any([timeout, signal]) : timeout;
+  const ask = config.provider === "Gemini" ? askGemini : askGroq;
+
+  const parsed = parseSuggestion(await ask(config, buildPrompt(page), combined));
   if (!parsed) throw new Error("The AI replied with something we couldn't read. Try again.");
-  return { ...parsed, model };
+  return { ...parsed, model: config.model, provider: config.provider };
 }

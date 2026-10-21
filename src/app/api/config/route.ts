@@ -6,5 +6,5 @@ import type { FeatureFlags } from "@/lib/seo/types";
 /** Tells the UI which optional features have keys configured. Never exposes the keys. */
 export async function GET() {
   await connection();
-  return Response.json({ pagespeed: Boolean(pagespeedKey()), ai: Boolean(aiConfig().key) } satisfies FeatureFlags);
+  return Response.json({ pagespeed: Boolean(pagespeedKey()), ai: aiConfig() !== null } satisfies FeatureFlags);
 }

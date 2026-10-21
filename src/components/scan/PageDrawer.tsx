@@ -148,7 +148,9 @@ function AiPanel({ row, onUpdate }: { row: PageRow; onUpdate: (patch: Partial<Cr
         </ol>
       )}
       <div className="flex items-center justify-between text-xs text-ink-3">
-        <span>via Groq · {ai.model}</span>
+        <span>
+          via {ai.provider ?? "Groq"} · {ai.model}
+        </span>
         <button type="button" onClick={run} disabled={state.loading} className="font-semibold underline underline-offset-2">
           {state.loading ? "Thinking…" : "Try again"}
         </button>
