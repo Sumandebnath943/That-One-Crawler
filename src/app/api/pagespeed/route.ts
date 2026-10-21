@@ -1,9 +1,14 @@
 import { jsonError, readJson } from "@/lib/server/http";
 import { pagespeedKey, runPagespeed } from "@/lib/server/pagespeed";
+import { rateLimit } from "@/lib/server/rate-limit";
 
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  // A scan sends at most ~18 a minute (25 pages, 3 at a time, 10–30s each), so 30 never gets in the way.
+  const limited = rateLimit(request, "pagespeed", 30, 60_000);
+  if (limited) return limited;
+
   const key = pagespeedKey();
   if (!key) return jsonError("PageSpeed isn't set up on this deployment (no PAGESPEED_KEY).", 404);
 

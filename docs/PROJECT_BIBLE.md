@@ -119,7 +119,7 @@ buildRows() + summarize() in the browser → report UI → IndexedDB ("that-one-
 | `/api/discover` | 20 per minute | 60s | Up to 40 sitemap fetches, 3 levels deep |
 | `/api/analyze` | 240 per minute | 60s | 1 to 10 URLs per request, plus `baseDomain` and optional brand rules |
 | `/api/check-links` | 120 per minute | 60s | 1 to 20 http(s) URLs per request |
-| `/api/pagespeed` | none (known gap) | 60s | Needs `PAGESPEED_KEY` |
+| `/api/pagespeed` | 30 per minute | 60s | Needs `PAGESPEED_KEY`. A scan sends at most about 18 a minute |
 | `/api/crux` | 30 per minute | 40s | Uses `PAGESPEED_KEY`; the Chrome UX Report API must be enabled |
 | `/api/ai` | 10 per minute burst, plus the daily quota | 90s | Visitor key in the `x-gemini-key` header skips the quota |
 | `/api/config` | none | n/a | Feature flags for the UI |

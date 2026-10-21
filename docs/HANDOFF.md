@@ -98,7 +98,6 @@ npm run start
 
 ## Known gaps and ideas
 
-- **`/api/pagespeed` has no rate limit**, unlike the other API routes. Someone could spend the PageSpeed quota by calling it directly. Adding `rateLimit(request, "pagespeed", 30, 60_000)` would match the others.
 - **The AI quota is "good enough", not airtight.** It's a signed cookie plus an in-memory per-IP counter, with no database. Clearing cookies resets the cookie count. The IP counter lives in one serverless instance and resets when that instance restarts. The same goes for all rate limits.
 - **No headless browser.** Pages that only render with JavaScript are flagged ("needs JavaScript") rather than rendered.
 - **No search volumes.** Keywords come from the pages themselves; we never invent volumes.
@@ -117,6 +116,7 @@ npm run start
 | `b1c6e4a` | Content checks, AI tools, link checking and the SEO-ready site (guides, llms.txt, sitemap, structured data) |
 | `f41425c` | The action plan no longer invents problems on clean sites |
 | `52ad4f2` | Each tool got its own job; report, guide pages and layout polished |
-| (this commit) | Project docs: Handoff, Project Bible, Portfolio Handoff |
+| `156f004` | Project docs: Handoff, Project Bible, Portfolio Handoff |
+| (this commit) | Rate limit on `/api/pagespeed` (30 per minute per IP), so every API route now has one |
 
 The old Flask app is kept in [`legacy/crawl-daddy`](../legacy/crawl-daddy) for reference.
