@@ -288,3 +288,64 @@ export function ScanCta({ title = "Check your own blog now" }: { title?: string 
     </section>
   );
 }
+
+/** Renders the [link](/path) and **bold** in shared page copy (see lib/content/pages.ts). */
+export function Rich({ text }: { text: string }) {
+  const parts = text.split(/(\[[^\]]+\]\([^)\s]+\)|\*\*[^*]+\*\*)/g);
+  return (
+    <>
+      {parts.map((part, i) => {
+        const link = part.match(/^\[([^\]]+)\]\(([^)\s]+)\)$/);
+        if (link) {
+          const [, label, href] = link;
+          const className = "font-semibold text-ink underline decoration-line underline-offset-4 hover:decoration-ink";
+          return href.startsWith("/") ? (
+            <Link key={i} href={href} className={className}>
+              {label}
+            </Link>
+          ) : (
+            <a key={i} href={href} className={className}>
+              {label}
+            </a>
+          );
+        }
+        const bold = part.match(/^\*\*([^*]+)\*\*$/);
+        return bold ? (
+          <b key={i} className="font-semibold text-ink">
+            {bold[1]}
+          </b>
+        ) : (
+          part
+        );
+      })}
+    </>
+  );
+}
+
+/** A section of shared page copy: paragraphs, then bullets as ticked cards. */
+export function CopySection({ section, children }: { section: { id: string; title: string; paragraphs?: string[]; bullets?: string[] }; children?: ReactNode }) {
+  return (
+    <Section id={section.id} title={section.title}>
+      {section.paragraphs?.map((p) => (
+        <p key={p}>
+          <Rich text={p} />
+        </p>
+      ))}
+      {section.bullets && (
+        <ul className="space-y-2">
+          {section.bullets.map((b) => (
+            <li key={b} className="flex gap-3 rounded-xl border-2 border-line bg-card px-4 py-3 text-base text-ink-2">
+              <span aria-hidden className="mt-0.5 grid size-5 shrink-0 place-items-center rounded-md bg-lime text-xs font-extrabold text-lime-ink">
+                ✓
+              </span>
+              <span className="min-w-0">
+                <Rich text={b} />
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+      {children}
+    </Section>
+  );
+}

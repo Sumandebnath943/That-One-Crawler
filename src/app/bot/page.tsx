@@ -1,42 +1,21 @@
 import type { Metadata } from "next";
 import { ArticleLayout, ContentShell, FaqSection, JsonLd, PageIntro, Section } from "@/components/content/ContentKit";
-import type { Faq } from "@/lib/content/guides";
+import { markdownUrl } from "@/lib/content/negotiate";
+import { BOT_PAGE } from "@/lib/content/pages";
 import { abs, breadcrumbs, faqPage, graph } from "@/lib/content/structured-data";
 
-const PATH = "/bot";
-const TITLE = "ThatOneCrawler Bot: What It Is and How to Control It";
-const DESCRIPTION =
-  "ThatOneCrawler visits pages only when someone runs an SEO scan. Learn how it behaves, how gently it crawls, and how to block it with robots.txt.";
+const PATH = BOT_PAGE.path;
+const TITLE = BOT_PAGE.title;
+const DESCRIPTION = BOT_PAGE.description;
 
 export const metadata: Metadata = {
   title: { absolute: TITLE },
   description: DESCRIPTION,
-  alternates: { canonical: PATH },
+  alternates: { canonical: PATH, types: { "text/markdown": markdownUrl(PATH) } },
 };
 
-const FAQS: Faq[] = [
-  {
-    q: "Why did ThatOneCrawler visit my site?",
-    a: "Someone entered your site's address into That One Crawler to run an SEO audit. The bot never crawls on its own schedule; every visit is triggered by a person's scan.",
-  },
-  {
-    q: "How do I block ThatOneCrawler?",
-    a: "Add a group for it to your robots.txt, for example “User-agent: ThatOneCrawler” followed by “Disallow: /”. We obey rules written for our user agent, and skip the URLs they disallow.",
-  },
-  {
-    q: "Does it obey general robots.txt rules?",
-    a: "Rules for all bots (User-agent: *) are reported as findings in the audit, because site owners usually want to know which pages search engines can't reach. Rules naming ThatOneCrawler are always obeyed.",
-  },
-];
-
-const BEHAVIOR = [
-  "Visits only when someone runs a scan; there's no background crawling or indexing.",
-  "Fetches about six pages at a time and stops at the page limit the person chose (1,000 at most).",
-  "Reads your robots.txt and sitemap first, and only follows links within your site.",
-  "Checks outgoing links and images with lightweight HEAD requests, and only retries with a tiny GET when a server refuses HEAD.",
-  "Never submits forms, logs in, or fetches private or internal network addresses.",
-  "Results are stored in the scanning person's browser, not on our servers.",
-];
+const FAQS = BOT_PAGE.faqs;
+const BEHAVIOR = BOT_PAGE.behavior;
 
 export default function BotPage() {
   const crumbs = [
@@ -55,7 +34,7 @@ export default function BotPage() {
       <PageIntro
         eyebrow="For site owners"
         title="Meet ThatOneCrawler, the bot behind the audits"
-        answer="ThatOneCrawler is the user agent That One Crawler uses to read public pages when someone runs an SEO audit. It only visits when a person starts a scan, fetches a few pages at a time, never logs in or submits forms, and obeys robots.txt rules written for it."
+        answer={BOT_PAGE.answer}
         crumbs={crumbs}
       />
       <ArticleLayout

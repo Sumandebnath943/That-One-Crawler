@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useSyncExternalStore } from "react";
+import { shortUrl, track } from "@/lib/client/beacon-events";
 import type { AiResult, QuotaInfo } from "@/lib/seo/types";
 
 // The AI tools call /api/ai. Visitors get a few free actions a day on our keys; after that they
@@ -76,8 +77,19 @@ export function useHasUserKey(): boolean {
   );
 }
 
+const TASK_LABEL: Record<string, string> = {
+  meta: "rewrote a title & meta description",
+  section: "rewrote a section",
+  headings: "fixed headings",
+  faq: "wrote an FAQ",
+  intro: "rewrote an intro",
+  plan: "built an action plan",
+};
+
 export async function runAi<T extends object>(body: Record<string, unknown>): Promise<AiResult<T>> {
   const key = getUserKey();
+  const task = String(body.task ?? "");
+  track("ai", `${TASK_LABEL[task] ?? task}${typeof body.url === "string" ? ` · ${shortUrl(body.url)}` : ""}${key ? " (own key)" : ""}`);
   const res = await fetch("/api/ai", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...(key ? { "x-gemini-key": key } : {}) },

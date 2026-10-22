@@ -15,6 +15,7 @@ import {
   Steps,
 } from "@/components/content/ContentKit";
 import { GUIDES, guideFor, type Guide } from "@/lib/content/guides";
+import { markdownUrl } from "@/lib/content/negotiate";
 import { article, breadcrumbs, faqPage, graph } from "@/lib/content/structured-data";
 import { ISSUES, SEVERITY_ORDER, type IssueCategory } from "@/lib/seo/issues";
 
@@ -29,7 +30,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: { absolute: guide.metaTitle },
     description: guide.metaDescription,
-    alternates: { canonical: path },
+    alternates: { canonical: path, types: { "text/markdown": markdownUrl(path) } },
     openGraph: { title: guide.metaTitle, description: guide.metaDescription, url: path, type: "article" },
   };
 }

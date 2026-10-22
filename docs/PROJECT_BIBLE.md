@@ -141,7 +141,7 @@ buildRows() + summarize() + withCrawlEvidence() in the browser → report UI →
 - Follows redirects by hand: at most 5, never off the site being scanned, and every hop is re-checked against the address rules.
 - 15-second timeout and a 3 MB response cap. HEAD support for link checks.
 - Records time to first byte (`ttfbMs`, redirects included) as well as the full download time.
-- User agent: `Mozilla/5.0 (compatible; ThatOneCrawler/1.0; +https://that-one-crawler.vercel.app/bot)`. Only the agent audit borrows other names (ChatGPT-User, OAI-SearchBot, Claude-User, PerplexityBot), always with `(agent-readiness check by ThatOneCrawler; +…/bot)` appended so site owners can tell it was us.
+- User agent: `Mozilla/5.0 (compatible; ThatOneCrawler/1.0; +https://thatonecrawler.houseofnamus.com/bot)`. Only the agent audit borrows other names (ChatGPT-User, OAI-SearchBot, Claude-User, PerplexityBot), always with `(agent-readiness check by ThatOneCrawler; +…/bot)` appended so site owners can tell it was us.
 
 ### robots.txt policy
 
@@ -390,7 +390,7 @@ Page tasks fetch the page again on the server (`readSource`), so the AI only eve
 
 ## 11. The site's own SEO, GEO and AEO
 
-The tool has to pass its own audit, and it does: SEO 100, AI search 95, no issues of any severity across 42 pages. Its own AI agent readiness is 94 (Agent-ready): every essential passes; the gaps are Markdown for agents, About/Contact/Privacy links, and profile links (sameAs) in the Person markup.
+The tool has to pass its own audit, and it does: SEO 100, AI search 95 and AI agents 100, with no issues of any severity across 45 pages. The only agent check it doesn't pass is the bonus `/.well-known/` discovery files, which content sites can skip.
 
 - **Titles and descriptions:**
   - Every page sets an absolute title of 30 to 60 characters and a description of 120 to 160 that contains its main keyword.
@@ -399,9 +399,15 @@ The tool has to pass its own audit, and it does: SEO 100, AI search 95, no issue
 - **Direct answers:** every guide and tool page opens with a 35 to 70 word answer (also enforced by tests). Guides follow it with question-style FAQ headings and answers of 30 to 80 words.
 - **Structured data:** a JSON-LD `@graph` per page (Person, WebSite, WebApplication, FAQPage, BreadcrumbList, TechArticle/Article, CollectionPage), with datePublished and dateModified from `CONTENT_UPDATED` (`src/lib/content/structured-data.ts`). Everything in the markup is also visible on the page.
 - **Machine-readable files:**
-  - `robots.txt` allows all crawlers plus named AI crawlers (GPTBot, OAI-SearchBot, ChatGPT-User, ClaudeBot, Claude-SearchBot, PerplexityBot, Google-Extended, Applebot-Extended), and disallows `/api/`.
-  - `sitemap.xml` lists 42 URLs.
-  - `llms.txt` and `llms-full.txt` follow the llmstxt.org format.
+  - `robots.txt` allows all crawlers plus 19 named AI agents (live fetchers, AI search and training crawlers), and disallows only `/api/` and the internal `/markdown/` route.
+  - `sitemap.xml` lists 45 URLs, built from `CONTENT_PATHS` in `src/lib/content/routes.ts` (the one list of public pages).
+  - `llms.txt` (with a "Key facts" block for answer engines) and `llms-full.txt` follow the llmstxt.org format.
+  - **Markdown twins:** every content page answers `/<page>.md` (homepage: `/index.md`) and `Accept: text/markdown` with Markdown, `Vary: Accept` and a canonical `Link` header pointing at the HTML page. The proxy rewrites these to `src/app/markdown/[[...path]]`, which renders `src/lib/content/markdown.ts`. Copy for the homepage, checklist, bot, About, Contact and Privacy pages lives in `src/lib/content/` (`home.ts`, `checklist.ts`, `pages.ts`), so the HTML and the Markdown can't drift.
+  - The homepage sends a `Link` header pointing at `/index.md`, `/llms.txt` and `/sitemap.xml` (next.config.ts), and every page has `<link rel="alternate" type="text/markdown">`.
+  - An IndexNow key file is served at `/<INDEXNOW_KEY>.txt`; `npm run indexnow` submits the sitemap.
+- **Trust pages:** `/about` (AboutPage), `/contact` (ContactPage; the form goes to Telegram) and `/privacy`, linked from the footer on every page. The Person markup carries `image`, `jobTitle` and nine `sameAs` profiles taken from the owner's own site.
+- **Verification tags:** Google, Bing and Yandex `<meta>` tags come from env vars; see [INDEXING_GUIDE.md](INDEXING_GUIDE.md).
+- **Visitor alerts:** see [BEACON.md](BEACON.md) for the Telegram beacon, crawler alerts and bot commands.
 - **Real 404s:** unknown `/checks/<slug>` URLs return a real 404 status through `src/proxy.ts`. Streamed pages can otherwise only send a "soft" 404.
 - **Author credit:** "Made with questionable amounts of caffeine by Suman Debnath" in the footer, linking to the portfolio with `rel="author"`. Each guide has a byline.
 - **Keyword research:**
@@ -483,7 +489,7 @@ docs/                         Handoff, Project Bible, Portfolio Handoff
 - **TypeScript strict.** Shared logic lives in `lib/seo` (runs on both sides), server-only code in `lib/server`, browser-only code in `lib/client`.
 - **Client modules:** don't import non-component values from a `"use client"` file into a server component; they arrive as client references. Shared constants live in plain modules, such as `MODE_LABEL` in `lib/content/tools.ts`.
 - **Comments explain why, not what,** and stay short. Match the density of the surrounding code.
-- **Tests:** 10 Vitest files, 184 tests, covering URL handling, robots, scoring, issues, keywords, reports, extraction (including every false positive found on real sites), image picking, title widths, link checks, the agent audit helpers and score, PageSpeed parsing, the improvement prompt, the AI router and guard, the quota, CSV, diffs, tool helpers and the content limits. Add a test with every behavior change, especially regressions found in self-audits.
+- **Tests:** 11 Vitest files, 207 tests, covering URL handling, robots, scoring, issues, keywords, reports, extraction (including every false positive found on real sites), image picking, title widths, link checks, the agent audit helpers and score, PageSpeed parsing, the improvement prompt, the AI router and guard, the quota, CSV, diffs, tool helpers and the content limits. Add a test with every behavior change, especially regressions found in self-audits.
 - **Copy:** plain English, direct, lightly funny, never mean. Every number shown comes from real data. Our own titles, descriptions and answers must pass our own checks.
 - **Commits:** imperative summary line, a body that explains what and why, ending with `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>` for AI-assisted commits.
 - **Next.js 16 specifics:**

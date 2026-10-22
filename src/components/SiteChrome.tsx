@@ -62,9 +62,11 @@ const FOOTER_COLUMNS = [
   {
     title: "About",
     links: [
+      { href: "/about", label: "About" },
+      { href: "/contact", label: "Contact" },
+      { href: "/privacy", label: "Privacy policy" },
       { href: "/bot", label: "Meet the crawler bot" },
       { href: "/llms.txt", label: "llms.txt" },
-      { href: "/sitemap.xml", label: "Sitemap" },
     ],
   },
 ];

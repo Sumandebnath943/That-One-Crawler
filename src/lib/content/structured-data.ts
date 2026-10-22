@@ -4,7 +4,7 @@ import type { Faq } from "./guides";
 // JSON-LD builders. Everything here describes content that is visible on the page.
 
 /** When the site's editorial content was last revised (shown on pages and in markup). */
-export const CONTENT_UPDATED = "2026-10-21";
+export const CONTENT_UPDATED = "2026-10-22";
 
 export const abs = (path: string) => `${SITE_URL}${path === "/" ? "" : path}`;
 
@@ -13,6 +13,9 @@ export const person = {
   "@id": `${SITE_URL}/#author`,
   name: AUTHOR.name,
   url: AUTHOR.url,
+  image: AUTHOR.image,
+  jobTitle: AUTHOR.jobTitle,
+  sameAs: AUTHOR.sameAs,
 };
 
 export const website = {
@@ -23,7 +26,24 @@ export const website = {
   description: SITE_DESCRIPTION,
   inLanguage: "en",
   creator: { "@id": `${SITE_URL}/#author` },
+  publisher: { "@id": `${SITE_URL}/#author` },
+  about: { "@id": `${SITE_URL}#app` },
 };
+
+/** A plain page of a given schema.org type (AboutPage, ContactPage, WebPage…). */
+export function webPage(type: string, opts: { name: string; description: string; path: string; extra?: object }) {
+  return {
+    "@type": type,
+    "@id": `${abs(opts.path)}#page`,
+    name: opts.name,
+    description: opts.description,
+    url: abs(opts.path),
+    inLanguage: "en",
+    isPartOf: { "@id": `${SITE_URL}/#website` },
+    dateModified: CONTENT_UPDATED,
+    ...opts.extra,
+  };
+}
 
 export function webApplication(name: string, path: string, description: string, features: string[]) {
   return {

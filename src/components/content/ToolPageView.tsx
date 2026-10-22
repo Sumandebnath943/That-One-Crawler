@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { markdownUrl } from "@/lib/content/negotiate";
 import { MODE_LABEL, TOOLS, toolFor, toolName } from "@/lib/content/tools";
 import { breadcrumbs, faqPage, graph, webApplication } from "@/lib/content/structured-data";
 import { ToolWorkbench, type ToolSlug } from "../tools/ToolWorkbench";
@@ -11,7 +12,7 @@ export function toolMetadata(slug: string): Metadata {
   return {
     title: { absolute: tool.metaTitle },
     description: tool.metaDescription,
-    alternates: { canonical: path },
+    alternates: { canonical: path, types: { "text/markdown": markdownUrl(path) } },
     openGraph: { title: tool.metaTitle, description: tool.metaDescription, url: path, type: "website" },
   };
 }

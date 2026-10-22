@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { shortUrl, track } from "@/lib/client/beacon-events";
 import { loadBrandRules, siteKeyFor } from "@/lib/client/brand-rules";
 import { contextFor, isRunning, runScan, type ScanState } from "@/lib/client/crawl";
 import { loadScan, saveScan } from "@/lib/client/history";
@@ -96,6 +97,7 @@ export function ScanWorkspace() {
     const controller = new AbortController();
     const live = () => !controller.signal.aborted || controller.signal.reason === "stop";
     stopRef.current = () => controller.abort("stop");
+    track("scan", `${shortUrl(scanUrl)} · up to ${maxPages} pages${wantPagespeed ? " · with PageSpeed" : ""}`);
 
     runScan(
       { url: scanUrl, maxPages, pagespeed: wantPagespeed, checkLinks, brandRules: loadBrandRules(siteKeyFor(scanUrl)) },
@@ -108,6 +110,13 @@ export function ScanWorkspace() {
     ).then(async (final) => {
       if (!live() || final.phase === "error") return;
       celebrate(final);
+      const done = summarize(buildRows(final.pages, contextFor(final)));
+      track(
+        "scan_done",
+        `${shortUrl(final.startUrl || scanUrl)} · ${done.total} pages · SEO ${done.avgScore ?? "—"} · AI search ${done.avgAiScore ?? "—"}` +
+          (final.agents ? ` · AI agents ${agentScore(final.agents).score}` : "") +
+          (final.phase === "stopped" ? " (stopped early)" : ""),
+      );
       if (await saveScan(final)) {
         setSavedId(final.id);
         // Swap ?url= for ?id= so a refresh shows this result instead of re-crawling.

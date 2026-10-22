@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { Mascot } from "@/components/Mascot";
 import { ScanForm } from "@/components/ScanForm";
-import type { Faq } from "@/lib/content/guides";
+import { FAQ_HOME as LANDING_FAQ, HERO, JUDGED, STEPS } from "@/lib/content/home";
 import { MODE_LABEL, TOOLS } from "@/lib/content/tools";
 import { HeroMascot } from "./HeroMascot";
+
+export { LANDING_FAQ };
 
 const FINDINGS: { tone: "crit" | "warn" | "note"; path: string; text: string }[] = [
   { tone: "crit", path: "/hello-world", text: "Missing H1" },
@@ -22,105 +24,11 @@ const FINDINGS: { tone: "crit" | "warn" | "note"; path: string; text: string }[]
 
 const TONE_DOT = { crit: "bg-crit", warn: "bg-warn", note: "bg-note" };
 
-const JUDGED = [
-  {
-    tag: "<title>",
-    title: "Titles & meta descriptions",
-    body: "Too long, too short, missing, cut off or copy-pasted across 47 posts. Measured in pixels, the way Google does.",
-    href: "/meta-tag-checker",
-  },
-  {
-    tag: "<h1>",
-    title: "Headings & readability",
-    body: "A page without an H1 is just a vibe. We also catch skipped heading levels, walls of text and sentences that never end.",
-    href: "/checks/missing-h1-tag",
-  },
-  {
-    tag: "×2",
-    title: "Keywords & cannibalization",
-    body: "Each page's main keyword, where it's missing, and which of your posts are fighting each other for the same search.",
-    href: "/keyword-cannibalization-checker",
-  },
-  {
-    tag: "404",
-    title: "Broken links & orphans",
-    body: "Dead links, redirect chains, pages nobody links to and posts buried ten clicks deep. The haunted wing of your blog.",
-    href: "/broken-link-checker",
-  },
-  {
-    tag: "✦ GEO",
-    title: "AI search & AI agents",
-    body: "Will ChatGPT, Perplexity and Google AI Overviews quote you, and can their agents even get in? Answers, facts, llms.txt, Markdown and bot walls.",
-    href: "/ai-agent-readiness-checker",
-  },
-  {
-    tag: "noindex",
-    title: "Indexability",
-    body: "noindex tags, robots.txt rules and wrong canonicals quietly hiding your best work from search engines. Rude.",
-    href: "/checks/noindex-tag",
-  },
-  {
-    tag: "{ }",
-    title: "Structured data & sharing",
-    body: "Broken JSON-LD, half-filled Article markup and missing Open Graph tags that make shared links look like ransom notes.",
-    href: "/checks/structured-data",
-  },
-  {
-    tag: "2019",
-    title: "Freshness & speed",
-    body: "Posts nobody's touched in a year, images heavier than your excuses, and Google's PageSpeed and Core Web Vitals.",
-    href: "/page-speed-test",
-  },
-];
-
-const STEPS = [
-  { title: "Paste a URL", body: "Any blog. Yours, ideally. Snooping on competitors is also allowed." },
-  {
-    title: "We read everything",
-    body: "Sitemap first, newest posts first. No sitemap? We follow links like a nosy neighbor, a few pages at a time so your server barely notices.",
-  },
-  {
-    title: "You get the verdict",
-    body: "An SEO score, an AI-readiness score, a prioritized to-do list and a mild existential crisis. Export to CSV for crying in a spreadsheet.",
-  },
-];
-
 const REVIEWS = [
   { quote: "It found 212 images without alt text. I didn't know I had 212 images.", by: "A food blog, probably" },
   { quote: "Rude. Accurate. Five stars.", by: "A WordPress site with three plugins too many" },
   { quote: "I was noindexed for two years and nobody told me.", by: "/best-post-ever" },
   { quote: "Finally, someone who reads past the first paragraph.", by: "A 4,000-word listicle" },
-];
-
-export const LANDING_FAQ: Faq[] = [
-  {
-    q: "Is That One Crawler really a free SEO audit tool?",
-    a: 'Yes. It runs on a hobby plan and pure spite. No signup, no email, no "book a demo". The AI tools include 20 free actions a day, then you can plug in your own free Gemini key.',
-  },
-  {
-    q: "Will scanning my blog slow it down?",
-    a: "No. We crawl politely, about six pages at a time, and only read public pages. Your server will barely notice. Your ego might.",
-  },
-  {
-    q: "Where do my results go?",
-    a: "Into your own browser. Scans are saved on your device, not on our servers. We don't have a database. We barely have a server.",
-  },
-  {
-    q: "How many pages can it check?",
-    a: "Up to 1,000 per scan (300 by default). We read your sitemap first, newest posts first, and check posts before tag and category archives.",
-  },
-  {
-    q: "What's the difference between SEO, GEO and AEO?",
-    a: "SEO gets you ranked in search results. GEO (generative engine optimization) and AEO (answer engine optimization) get you quoted in AI answers from ChatGPT, Perplexity and Google AI Overviews. We check for all three.",
-  },
-  {
-    q: "My site is built with JavaScript and the results look empty.",
-    a: "We read the HTML your server sends, the way most crawlers do on their first pass. If the content only shows up after JavaScript runs, we flag it, because search engines and AI tools may struggle with it too.",
-  },
-  {
-    q: "What happened to Crawl Daddy?",
-    a: "He retired. This is his more responsible younger sibling: same instincts, faster legs, and no longer needs to be republished every 30 days to stay alive.",
-  },
 ];
 
 export function Hero() {
@@ -134,11 +42,7 @@ export function Hero() {
           <h1 className="font-display text-5xl leading-[0.95] font-extrabold tracking-tight text-balance sm:text-6xl lg:text-7xl">
             Your blog has issues. <span className="highlight">This free SEO audit finds every single one.</span>
           </h1>
-          <p className="mt-6 max-w-xl text-lg text-ink-2 sm:text-xl">
-            That One Crawler reads every page on your blog and reports back like that one brutally honest friend:
-            missing H1s, thin content, broken links, posts fighting over the same keyword, and whether AI search will
-            ever quote you.
-          </p>
+          <p className="mt-6 max-w-xl text-lg text-ink-2 sm:text-xl">{HERO.intro}</p>
           <div className="mt-8 max-w-2xl">
             <ScanForm />
           </div>

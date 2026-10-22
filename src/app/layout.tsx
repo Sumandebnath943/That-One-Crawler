@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
+import { Analytics } from "@/components/beacon/Analytics";
+import { Beacon } from "@/components/beacon/Beacon";
 import { GlobalQuirks } from "@/components/quirks/GlobalQuirks";
 import { AUTHOR, HOME_TITLE, SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
 import { Bricolage_Grotesque, Geist, Geist_Mono } from "next/font/google";
@@ -30,6 +32,11 @@ export const metadata: Metadata = {
     "AEO checker",
     "AI search readiness",
     "meta tag checker",
+    "AI agent readiness checker",
+    "llms.txt checker",
+    "SEO audit for bloggers",
+    "free website crawler",
+    "page speed test",
   ],
   // Let search engines and AI tools show full snippets and large image previews.
   robots: {
@@ -46,6 +53,12 @@ export const metadata: Metadata = {
     url: "/",
   },
   twitter: { card: "summary_large_image", title: HOME_TITLE, description: SITE_DESCRIPTION },
+  // Search engine ownership checks. Public tokens, not secrets; each tag is left out when unset.
+  verification: {
+    google: process.env.GOOGLE_SITE_VERIFICATION || undefined,
+    yandex: process.env.YANDEX_VERIFICATION || undefined,
+    other: process.env.BING_SITE_VERIFICATION ? { "msvalidate.01": process.env.BING_SITE_VERIFICATION } : undefined,
+  },
 };
 
 export const viewport: Viewport = {
@@ -72,6 +85,8 @@ export default function RootLayout({ children }: Readonly<{ children: ReactNode 
       <body className="flex min-h-full flex-col bg-paper font-sans text-ink">
         {children}
         <GlobalQuirks />
+        <Beacon />
+        <Analytics />
       </body>
     </html>
   );

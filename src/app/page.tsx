@@ -18,7 +18,7 @@ import { faqPage, graph, webApplication } from "@/lib/content/structured-data";
 import { SITE_DESCRIPTION, SITE_NAME } from "@/lib/site";
 
 export const metadata: Metadata = {
-  alternates: { canonical: "/" },
+  alternates: { canonical: "/", types: { "text/markdown": "/index.md" } },
 };
 
 export default function Home() {

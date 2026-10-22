@@ -10,7 +10,7 @@ _Last updated: 22 October 2026._
 | --- | --- |
 | Project | That One Crawler |
 | One-liner | A free, brutally honest SEO and AI-search audit tool for blogs |
-| Live | https://that-one-crawler.vercel.app |
+| Live | https://thatonecrawler.houseofnamus.com |
 | Code | https://github.com/Sumandebnath943/That-One-Crawler |
 | Maker | Suman Debnath ([sumandebnath.houseofnamus.com](https://sumandebnath.houseofnamus.com)) |
 | Role | Product, design and full-stack development |
@@ -64,7 +64,7 @@ Good for interviews and case-study sections.
 - **Precision over noise.** Prompt-injection checks need a command addressed to a model and skip code samples and quotations; hidden text, comments and "Summarize with AI" links are checked more strictly. Images are weighed as the srcset variant a browser actually downloads, fetched with a browser's image Accept header. A broken Next.js image reports its missing source file; a GitHub 404 explains that private repos look deleted to visitors.
 - **Agent probes that don't cry wolf.** Firewall checks that time out are retried, then left out instead of counted as blocks.
 - **Design details that matter to crawlers.** Decorative badges and step numbers are CSS-only, so headings read exactly as written for search engines and AI.
-- **Quality bar.** 184 unit tests, plus tests that hold the site's own copy to the limits its crawler enforces. The tool is regularly run against its own site.
+- **Quality bar.** 207 unit tests, plus tests that hold the site's own copy to the limits its crawler enforces. The tool is regularly run against its own site.
 
 ## Numbers
 
@@ -78,8 +78,8 @@ Good for interviews and case-study sections.
 | Pages per scan | up to 1,000 |
 | Links and images checked per scan | up to 400 |
 | Free AI actions per visitor per day | 20 (unlimited with their own free key) |
-| Unit tests | 184 |
-| Own audit | SEO 100/100, AI search 95/100, 0 issues on 42 pages; AI agents 94/100 |
+| Unit tests | 207 |
+| Own audit | SEO 100/100, AI search 95/100, AI agents 100/100, 0 issues on 45 pages |
 | Hosting cost | $0 |
 
 ## Screenshot and video list
@@ -124,7 +124,7 @@ Capture in light mode at about 1440px wide unless noted, and show the live site.
 > • It checks whether ChatGPT, Claude and Perplexity can even get into your site, and hands you one prompt to fix everything with your coding agent
 > • It audits its own site: 100 for SEO, 95 for AI search, zero issues
 >
-> No signup. Try it on your blog: https://that-one-crawler.vercel.app
+> No signup. Try it on your blog: https://thatonecrawler.houseofnamus.com
 
 **Resume bullets**
 - Built That One Crawler, a free SEO and AI-search audit tool (Next.js, TypeScript, Vercel). It crawls up to 1,000 pages per scan with 53 checks, a 24-check AI agent audit and $0 hosting costs.

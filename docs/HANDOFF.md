@@ -9,13 +9,13 @@ _Last updated: 22 October 2026._
 | | |
 | --- | --- |
 | What it is | A free SEO, GEO, AEO and AI-agent-readiness audit tool for blogs, plus six focused tools (including a PageSpeed test and an AI agent readiness checker) and 32 "checks explained" guides |
-| Live site | https://that-one-crawler.vercel.app |
+| Live site | https://thatonecrawler.houseofnamus.com |
 | Repository | https://github.com/Sumandebnath943/That-One-Crawler (public), branch `main` |
 | Hosting | Vercel Hobby (free). Every push to `main` deploys automatically |
 | Owner | Suman Debnath (https://sumandebnath.houseofnamus.com) |
 | Stack | Next.js 16.4 (App Router, Turbopack), React 19.3, TypeScript, Tailwind CSS 4, cheerio, Vitest |
 | Data | No database. Scans, brand rules and a visitor's own AI key live in that visitor's browser |
-| Status | Live and working. The site audits itself at SEO 100, AI search 95, with no critical, warning or notice issues; its own AI agent readiness is 94 |
+| Status | Live and working. The site audits itself at SEO 100, AI search 95 and AI agents 100 across 45 pages, with no critical, warning or notice issues |
 
 ## Current state of services
 
@@ -28,7 +28,10 @@ All optional services are configured and were tested on production on 22 October
 | PageSpeed Insights | `PAGESPEED_KEY` | ✓ | ✓ | Same Google key also powers CrUX |
 | Chrome UX Report (real-user speed) | uses `PAGESPEED_KEY` | ✓ | ✓ | "Chrome UX Report API" is enabled on the key's Google Cloud project |
 
-Optional settings nobody needs to set: `AI_DAILY_LIMIT` (free AI actions per visitor per day, default 20), `AI_QUOTA_SECRET` (signs the quota cookie; derived from the AI keys if unset), `GROQ_MODEL`, `GEMINI_MODEL`, `AI_PROVIDER`, `NEXT_PUBLIC_SITE_URL` (only for a custom domain). See [`.env.example`](../.env.example).
+| Telegram visitor alerts | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`, `TELEGRAM_WEBHOOK_SECRET` | not yet | not yet | Built and tested against a fake Telegram API on 22 October 2026. Setup: [BEACON.md](BEACON.md). Until set, the beacon, crawler alerts and contact form are quiet no-ops (the form points people to GitHub) |
+| Search Console, Bing, GA4 | none needed | | | Search Console verified through the domain provider; Bing imported from Search Console; GA4 ID `G-7VVFQHW4RV` is built in (`GA_ID` in `src/lib/site.ts`). Steps in [INDEXING_GUIDE.md](INDEXING_GUIDE.md) |
+
+Optional settings nobody needs to set: `AI_DAILY_LIMIT` (free AI actions per visitor per day, default 20), `AI_QUOTA_SECRET` (signs the quota cookie; derived from the AI keys if unset), `GROQ_MODEL`, `GEMINI_MODEL`, `AI_PROVIDER`, `NEXT_PUBLIC_SITE_URL` (only for a custom domain), `BEACON_ALERT_BOTS` (starting bot-alert mode), `NEXT_PUBLIC_BEACON_DEBUG` (dev only: let localhost alert), `YANDEX_VERIFICATION`. See [`.env.example`](../.env.example).
 
 ## Rules that must not be broken
 
@@ -38,6 +41,9 @@ Optional settings nobody needs to set: `AI_DAILY_LIMIT` (free AI actions per vis
 4. **Never set `ALLOW_PRIVATE_URLS` on Vercel.** It turns off the fetcher's private-network protection and exists only for auditing the site on `localhost`.
 5. **The reference project `D:\project\Aritra seo-&-content-dual-agent-optimizer` is read-only.** It inspired some features; don't edit anything in it.
 6. **A visitor's own Gemini key must never be stored or logged by the server.** It's sent per request in the `x-gemini-key` header and used once.
+7. **The reference project `D:\project\Imprint` is read-only.** The visitor beacon was ported from it; never edit anything there.
+8. **Keep `/privacy` true.** If the beacon, contact form or analytics start collecting something new, update `src/lib/content/pages.ts` in the same change.
+9. **Never set `TELEGRAM_API_URL` on Vercel.** It exists only to point tests at a fake Telegram API.
 
 ## Run it locally
 
@@ -54,7 +60,9 @@ npm run start
 | --- | --- |
 | `npm run dev` | Dev server on port 3000 (see the Windows note below) |
 | `npm run build` / `npm run start` | Production build and server |
-| `npm test` | Vitest: 10 files, 184 tests |
+| `npm test` | Vitest: 11 files, 207 tests |
+| `npm run telegram:setup` | Connects the alert bot's webhook and command menu (`-- --find-chat` prints your chat id) |
+| `npm run indexnow` | Submits the live sitemap (or given paths) to IndexNow |
 | `npm run lint` / `npm run typecheck` | ESLint / `tsc --noEmit` |
 
 ### Windows machine notes (the current dev PC)
@@ -77,11 +85,13 @@ npm run start
 ## How to check a change
 
 1. `npm run typecheck`, `npm test`, `npm run lint` all pass.
-2. `npm run build` succeeds (62 static pages).
-3. **Self-audit:** build with `NEXT_PUBLIC_SITE_URL=http://localhost:3007`, start the `prod-self` config, then open `http://localhost:3007/scan?url=http%3A%2F%2Flocalhost%3A3007&max=100`. Expect 42 sitemap URLs, SEO 100, AI search about 95, AI agents about 94, and 0 critical, 0 warnings, 0 notices. Any new notice on our own pages is a bug in the copy or the checker. The agent check can also be run on its own at `/ai-agent-readiness-checker?url=http%3A%2F%2Flocalhost%3A3007`.
+2. `npm run build` succeeds (114 static pages, including 45 Markdown twins).
+3. **Self-audit:** build with `NEXT_PUBLIC_SITE_URL=http://localhost:3007`, start the `prod-self` config, then open `http://localhost:3007/scan?url=http%3A%2F%2Flocalhost%3A3007&max=100`. Expect 45 sitemap URLs, SEO 100, AI search about 95, AI agents 100, and 0 critical, 0 warnings, 0 notices. Any new notice on our own pages is a bug in the copy or the checker. The agent check can also be run on its own at `/ai-agent-readiness-checker?url=http%3A%2F%2Flocalhost%3A3007`.
 4. **Production smoke test** after deploying:
    - `/api/config` returns `{"pagespeed":true,"crux":true,"ai":true,"aiDailyLimit":20}`.
-   - `/robots.txt`, `/sitemap.xml` (42 URLs), `/llms.txt` and `/llms-full.txt` return 200. `/checks/not-a-real-check` returns 404.
+   - `/robots.txt`, `/sitemap.xml` (45 URLs), `/llms.txt` and `/llms-full.txt` return 200. `/checks/not-a-real-check` and `/nope.md` return 404.
+   - `/index.md`, `/about.md` and `curl -H "Accept: text/markdown" <site>/checks` return `text/markdown` with `Vary: Accept`.
+   - `/api/beacon` (in a browser) shows `telegramConfigured` and `commandsConfigured`; `/status` in the bot answers.
    - `/ai-agent-readiness-checker?url=sumandebnath.houseofnamus.com` scores about 100 (is-agentic.com says 100 too) and lists llms.txt (over 30K characters) and `.md` twins as the only gaps.
    - `/page-speed-test?url=…` shows mobile and desktop results with failed audits.
    - One AI action shows which provider answered. A long job (section rewrite) should say Gemini, and a short one (title & meta) should say Groq.
@@ -108,7 +118,9 @@ npm run start
 - **The SEO score changed on 22 October 2026** from Crawl Daddy's checklist to "100 minus weighted issues". Saved scans are re-scored on load, but summaries in the recent-scans list keep the number they were saved with until that scan is opened and saved again.
 - **Agent probes borrow agents' names.** The firewall check loads the homepage as ChatGPT-User, OAI-SearchBot, Claude-User and PerplexityBot (with our name appended). Firewalls that verify real bots by IP may block us while letting the real bot through; the result says so. Timeouts are left out, not counted as blocks.
 - **Not checked: brand discoverability** (whether the site ranks for its own name). is-agentic.com checks it with a search engine; we have no search API.
-- **Our own agent gaps:** no Markdown for agents (`Accept: text/markdown`, `.md` twins), no About/Contact/Privacy links, no sameAs links in the Person markup. A Privacy page needs the owner's decision.
+- **Our own agent gap:** only the bonus `/.well-known/` discovery files, which the checker itself says content sites can skip.
+- **Alert settings and dedupe are best-effort.** Settings live in the Telegram bot's short description (cached a minute per instance); crawler-alert dedupe is in memory per instance, so a busy crawl can produce a few extra alerts.
+- **The proxy now runs on every page request** (crawler alerts, Markdown negotiation, real 404s). It's cheap and synchronous, but it counts toward Vercel's function invocations.
 - **Not built, by choice:** scheduled rescans with email, and shareable report links. Both need a server-side database, and the owner chose browser-only data. The replacements are a "Time for a rescan?" reminder after 7 days and a downloadable HTML report.
 - **Model churn:** free-tier model names change. Keep the defaults in `src/lib/server/ai/router.ts` current.
 

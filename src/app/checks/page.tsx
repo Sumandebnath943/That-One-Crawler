@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ContentShell, FaqSection, JsonLd, PageIntro, ScanCta } from "@/components/content/ContentKit";
 import { GUIDES, type Faq } from "@/lib/content/guides";
+import { markdownUrl } from "@/lib/content/negotiate";
 import { abs, breadcrumbs, CONTENT_UPDATED, faqPage, graph } from "@/lib/content/structured-data";
 import { ISSUES, type IssueCategory } from "@/lib/seo/issues";
 
@@ -13,7 +14,7 @@ const DESCRIPTION =
 export const metadata: Metadata = {
   title: { absolute: TITLE },
   description: DESCRIPTION,
-  alternates: { canonical: PATH },
+  alternates: { canonical: PATH, types: { "text/markdown": markdownUrl(PATH) } },
   openGraph: { title: TITLE, description: DESCRIPTION, url: PATH, type: "website" },
 };
 

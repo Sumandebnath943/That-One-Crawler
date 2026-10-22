@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { shortUrl, track } from "@/lib/client/beacon-events";
 import { signalForm } from "@/lib/client/quirks";
 import { DEFAULT_PAGE_LIMIT } from "@/lib/limits";
 import type { PageRow } from "@/lib/seo/issues";
@@ -14,6 +15,12 @@ const BAD_URL = "That doesn't look like a web address. Try something like myblog
 /** Page counts offered by the site-wide tools. */
 export const TOOL_PAGE_OPTIONS = [25, 50, 100, 250, 500];
 const INITIAL_PAGES = Math.min(DEFAULT_PAGE_LIMIT, 100);
+
+/** "/broken-link-checker" → "Broken link checker · example.com" for the visitor beacon. */
+function trackTool(url: string) {
+  const name = location.pathname.slice(1).replace(/-/g, " ");
+  track("tool", `${name.charAt(0).toUpperCase()}${name.slice(1)} · ${shortUrl(url)}`);
+}
 
 /** The URL box every tool starts with. Site tools add a page-count picker. */
 export function ToolForm({
@@ -47,6 +54,7 @@ export function ToolForm({
     // A tick later, so it runs once even when React mounts the form twice in development.
     const timer = setTimeout(() => {
       setUrl(given);
+      trackTool(normalized);
       submitRef.current(normalized, INITIAL_PAGES);
     }, 0);
     return () => clearTimeout(timer);
@@ -62,6 +70,7 @@ export function ToolForm({
     }
     setError(null);
     signalForm("submit");
+    trackTool(normalized);
     onSubmit(normalized, maxPages);
   };
 
