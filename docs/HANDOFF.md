@@ -124,5 +124,6 @@ npm run start
 | `52ad4f2` | Each tool got its own job; report, guide pages and layout polished |
 | `156f004` | Project docs: Handoff, Project Bible, Portfolio Handoff |
 | `2506ffb` | Rate limit on `/api/pagespeed` (30 per minute per IP), so every API route that does work now has one |
+| `bf6bea3` | Accuracy overhaul from a real-site benchmark (false positives fixed, issue-weighted SEO score), AI agent readiness audit and tool, full PageSpeed report and tool, "Prompt to improve", six new checks |
 
 The old Flask app is kept in [`legacy/crawl-daddy`](../legacy/crawl-daddy) for reference.
