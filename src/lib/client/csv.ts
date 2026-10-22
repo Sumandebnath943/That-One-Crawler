@@ -1,4 +1,5 @@
 import { canonicalMatches, issueText, readingMinutes, type PageRow } from "@/lib/seo/issues";
+import { titleWidth } from "@/lib/seo/pixels";
 
 type Cell = string | number | boolean | null | undefined;
 
@@ -9,6 +10,7 @@ const COLUMNS: [string, (row: PageRow) => Cell][] = [
   ["issues", (r) => r.issues.map(issueText).join("; ")],
   ["title", (r) => r.title],
   ["title_length", (r) => (r.hasContent ? r.title.length : "")],
+  ["title_width_px", (r) => (r.hasContent ? titleWidth(r.title) : "")],
   ["meta_description", (r) => r.metaDescription],
   ["meta_description_length", (r) => (r.hasContent ? r.metaDescription.length : "")],
   ["h1_tags", (r) => r.h1.join(" | ")],
@@ -43,7 +45,7 @@ const COLUMNS: [string, (row: PageRow) => Cell][] = [
   ["external_links", (r) => (r.hasContent ? r.externalLinks : "")],
   ["image_count", (r) => (r.hasContent ? r.imageCount : "")],
   ["images_missing_alt", (r) => (r.hasContent ? r.imagesMissingAlt : "")],
-  ["ai_readiness", (r) => r.aiScore],
+  ["ai_search_readiness", (r) => r.aiScore],
   ["primary_keyword", (r) => r.primaryKeyword?.phrase],
   ["keyword_density_pct", (r) => r.keywordDensity],
   ["reading_ease", (r) => r.readability.readingEase],
@@ -57,6 +59,10 @@ const COLUMNS: [string, (row: PageRow) => Cell][] = [
   ["broken_links", (r) => r.brokenOutlinks.map((b) => `${b.url} (${b.status || "error"})`).join(" | ")],
   ["heavy_images", (r) => r.heavyImages.map((i) => `${i.url} (${Math.round(i.sizeBytes / 1024)} KB)`).join(" | ")],
   ["schema_errors", (r) => r.schemaErrors],
+  ["hidden_ai_instructions", (r) => r.hiddenInstructions.join(" | ")],
+  ["insecure_resources", (r) => r.insecureResources.join(" | ")],
+  ["vague_link_texts", (r) => r.vagueLinks.join(" | ")],
+  ["ttfb_ms", (r) => r.ttfbMs || ""],
   ["load_time_ms", (r) => r.loadTimeMs],
   ["size_bytes", (r) => r.sizeBytes],
   ["ps_performance", (r) => r.pagespeed?.performance],
@@ -66,6 +72,10 @@ const COLUMNS: [string, (row: PageRow) => Cell][] = [
   ["ps_lcp_s", (r) => r.pagespeed?.lcpSeconds],
   ["ps_cls", (r) => r.pagespeed?.cls],
   ["ps_tbt_ms", (r) => r.pagespeed?.tbtMs],
+  ["ps_fcp_s", (r) => r.pagespeed?.fcpSeconds],
+  ["ps_speed_index_s", (r) => r.pagespeed?.speedIndexSeconds],
+  ["cwv_assessment", (r) => (r.pagespeed?.field?.passed === undefined || r.pagespeed.field.passed === null ? "" : r.pagespeed.field.passed ? "passed" : "failed")],
+  ["ps_failed_audits", (r) => (r.pagespeed?.categories ?? []).flatMap((c) => c.failed.map((a) => a.title)).join(" | ")],
 ];
 
 function escape(value: Cell): string {

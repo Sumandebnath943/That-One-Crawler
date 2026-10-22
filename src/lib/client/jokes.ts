@@ -34,4 +34,11 @@ export const LINK_QUIPS = [
   "Finding out which links lead nowhere",
 ];
 
+export const AGENT_QUIPS = [
+  "Knocking on your door as ChatGPT, Claude and Perplexity",
+  "Asking your server for Markdown, nicely",
+  "Reading your llms.txt like a menu",
+  "Requesting a page that doesn't exist. On purpose.",
+];
+
 export const RECENT_EMPTY = "No judgments yet. Your blog is still innocent until proven guilty.";

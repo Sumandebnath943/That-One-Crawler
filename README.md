@@ -2,7 +2,7 @@
 
 **Your blog has issues. This free SEO audit finds every single one.**
 
-That One Crawler is a free, brutally honest SEO and AI-search audit tool for blogs. Paste a URL and it crawls the whole site (up to 1,000 pages), scores every page for classic SEO and for AI-search readiness (GEO/AEO), and explains every problem in plain English with how to fix it.
+That One Crawler is a free, brutally honest SEO and AI-search audit tool for blogs. Paste a URL and it crawls the whole site (up to 1,000 pages), scores every page for classic SEO and for AI-search readiness (GEO/AEO), checks whether AI agents can reach and read the site, and explains every problem in plain English with how to fix it. Every finding can be copied as one prompt for your AI coding agent.
 
 Live at **https://that-one-crawler.vercel.app**. It's the reprised version of Crawl Daddy (see [`legacy/crawl-daddy`](legacy/crawl-daddy)), rebuilt to run free on Vercel with nothing to babysit.
 
@@ -11,16 +11,16 @@ Live at **https://that-one-crawler.vercel.app**. It's the reprised version of Cr
 | Doc | For |
 | --- | --- |
 | [Handoff](docs/HANDOFF.md) | Running, deploying and maintaining the project: services, rules not to break, checks, troubleshooting, known gaps |
-| [Project Bible](docs/PROJECT_BIBLE.md) | How everything works and why: features, architecture, scoring, the 47 checks, the keyword engine, the AI system, the site's own SEO, design system, code map, decisions |
+| [Project Bible](docs/PROJECT_BIBLE.md) | How everything works and why: features, architecture, scoring, the 53 checks, the keyword engine, AI agent readiness, PageSpeed, the improvement prompt, the AI system, the site's own SEO, design system, code map, decisions |
 | [Portfolio Handoff](docs/PORTFOLIO_HANDOFF.md) | Presenting the project: story, highlights, numbers, screenshot list, ready-to-paste copy |
 
 ## What it does
 
-- **Full audit:** 47 checks across indexing, search appearance, content, links, keywords, structured data, AI search, performance and brand rules. Two scores per page (SEO and AI readiness), a report with tabs for pages, links, keywords, changes and an AI action plan, CSV and HTML exports, and history kept in your browser.
-- **Four focused tools:** a [meta tag checker](https://that-one-crawler.vercel.app/meta-tag-checker) and a [GEO & AEO checker](https://that-one-crawler.vercel.app/geo-aeo-checker) (one page, in seconds), plus a [broken link checker](https://that-one-crawler.vercel.app/broken-link-checker) and a [keyword cannibalization checker](https://that-one-crawler.vercel.app/keyword-cannibalization-checker) (site crawls).
+- **Full audit:** 53 checks across indexing, search appearance, content, links, keywords, structured data, AI search, performance, security and brand rules, plus 24 site-level AI agent checks. Scores for SEO, AI search and AI agents (and speed when PageSpeed runs), a report with tabs for pages, links, keywords, AI agents, speed, changes and an AI action plan, a **Prompt to improve** for coding agents, CSV and HTML exports, and history kept in your browser.
+- **Six focused tools:** a [meta tag checker](https://that-one-crawler.vercel.app/meta-tag-checker), a [GEO & AEO checker](https://that-one-crawler.vercel.app/geo-aeo-checker) and a [page speed test](https://that-one-crawler.vercel.app/page-speed-test) (one page), an [AI agent readiness checker](https://that-one-crawler.vercel.app/ai-agent-readiness-checker) (whole site, in seconds), plus a [broken link checker](https://that-one-crawler.vercel.app/broken-link-checker) and a [keyword cannibalization checker](https://that-one-crawler.vercel.app/keyword-cannibalization-checker) (site crawls).
 - **AI help on free tiers:** title and description rewrites, quick-answer intros, question headings, section rewrites, FAQs with markup, and a site-wide action plan. Page text is fenced against prompt injection and every answer is fact-checked against the page. 20 free actions per visitor per day, then visitors can use their own free Gemini key, kept in their browser.
-- **Optional speed data:** Google PageSpeed scores and real-user Core Web Vitals (Chrome UX Report).
-- **Guides:** [30 plain-English guides](https://that-one-crawler.vercel.app/checks) covering every check, and a [blog SEO checklist](https://that-one-crawler.vercel.app/blog-seo-checklist).
+- **Optional speed data:** the full PageSpeed Insights report (four Lighthouse scores, lab metrics, every failed audit with savings) and real-user Core Web Vitals (Chrome UX Report).
+- **Guides:** [32 plain-English guides](https://that-one-crawler.vercel.app/checks) covering every check, and a [blog SEO checklist](https://that-one-crawler.vercel.app/blog-seo-checklist).
 
 ## How it works
 
@@ -29,6 +29,7 @@ The visitor's **browser drives the crawl** and calls small, stateless API routes
 ```
 Browser (src/lib/client/crawl.ts)
   │  /api/discover     robots.txt, sitemaps (newest first), redirects
+  │  /api/agents       AI agent readiness: robots.txt, bot walls, Markdown, llms.txt, 404s…
   │  /api/analyze      fetch and extract pages, 3 per call, 2 calls at a time
   │  /api/check-links  test outgoing links and images (HEAD, confirmed with GET)
   │  /api/pagespeed    PageSpeed Insights (optional)

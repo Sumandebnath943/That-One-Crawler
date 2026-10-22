@@ -1,4 +1,5 @@
 import { LINK_CHECK_LIMIT, PAGESPEED_PAGE_LIMIT } from "@/lib/limits";
+import type { AgentReport } from "@/lib/seo/agents";
 import { hasContent } from "@/lib/seo/issues";
 import type { BuildContext } from "@/lib/seo/report";
 import { isAllowedByRobots } from "@/lib/seo/robots";
@@ -25,9 +26,11 @@ export interface ScanSettings {
   /** Check outgoing links and images for breakage and weight. */
   checkLinks: boolean;
   brandRules: BrandRules | null;
+  /** Run the AI agent readiness audit alongside the crawl (on unless a focused tool turns it off). */
+  agents?: boolean;
 }
 
-export type ScanPhase = "discovering" | "crawling" | "links" | "pagespeed" | "done" | "stopped" | "error";
+export type ScanPhase = "discovering" | "crawling" | "links" | "pagespeed" | "agents" | "done" | "stopped" | "error";
 export type CrawlMethod = "sitemap" | "links";
 
 export interface ScanState {
@@ -66,6 +69,9 @@ export interface ScanState {
   psTotal: number;
   /** AI action plan for the whole scan, if one was generated. */
   plan?: AiResult<AiPlan>;
+  /** Site-level AI agent readiness, checked once per scan. */
+  agents?: AgentReport;
+  agentsError?: string;
   warnings: string[];
   error: string | null;
   startedAt: number;
@@ -76,12 +82,28 @@ export interface ScanState {
 const BATCH_SIZE = 3;
 const CONCURRENCY = 2;
 const LINK_BATCH = 15;
-const LINK_CONCURRENCY = 2;
+// Link checks mostly hit other hosts (and CDNs), so three batches at once is still gentle.
+const LINK_CONCURRENCY = 3;
 const PAGESPEED_CONCURRENCY = 3;
 const PAGESPEED_MAX_CONSECUTIVE_ERRORS = 5;
 
+/**
+ * Split a check budget between lists by share, then hand whatever a short list didn't use to the
+ * others, so a site with few external links gets more of its images checked (and vice versa).
+ */
+export function shareBudget<T>(lists: T[][], shares: number[], budget: number): T[] {
+  const taken = lists.map((list, i) => Math.min(list.length, Math.round(budget * shares[i])));
+  let left = budget - taken.reduce((a, b) => a + b, 0);
+  for (let i = 0; i < lists.length && left > 0; i++) {
+    const extra = Math.min(left, lists[i].length - taken[i]);
+    taken[i] += extra;
+    left -= extra;
+  }
+  return lists.flatMap((list, i) => list.slice(0, taken[i]));
+}
+
 export function isRunning(phase: ScanPhase): boolean {
-  return phase === "discovering" || phase === "crawling" || phase === "links" || phase === "pagespeed";
+  return phase === "discovering" || phase === "crawling" || phase === "links" || phase === "pagespeed" || phase === "agents";
 }
 
 /** The context the report needs to judge a scan's pages. */
@@ -295,11 +317,7 @@ export async function runScan(
       page.outlinksExternal.forEach((link) => external.add(link));
       page.imageSrcs.forEach((src) => images.add(src));
     }
-    const targets = [
-      ...[...internal].slice(0, Math.round(LINK_CHECK_LIMIT * 0.35)),
-      ...[...external].slice(0, Math.round(LINK_CHECK_LIMIT * 0.4)),
-      ...[...images].slice(0, Math.round(LINK_CHECK_LIMIT * 0.25)),
-    ];
+    const targets = shareBudget([[...internal], [...external], [...images]], [0.35, 0.4, 0.25], LINK_CHECK_LIMIT);
     if (!targets.length) return;
     if (internal.size + external.size + images.size > targets.length) {
       warn(`We checked ${targets.length} of ${internal.size + external.size + images.size} links and images; the rest were over the limit.`);
@@ -318,7 +336,8 @@ export async function runScan(
         batch.forEach((url) => active.add(url));
         emit();
         try {
-          const res = await postJson<{ results: LinkCheck[] }>("/api/check-links", { urls: batch }, signal, 1);
+          const body = { urls: batch.filter((url) => !images.has(url)), images: batch.filter((url) => images.has(url)) };
+          const res = await postJson<{ results: LinkCheck[] }>("/api/check-links", body, signal, 1);
           const found: Record<string, LinkCheck> = {};
           for (const result of res.results) found[result.url] = result;
           state.linkChecks = { ...state.linkChecks, ...found };
@@ -392,6 +411,19 @@ export async function runScan(
     lastmods = discovery.sitemap.lastmods ?? {};
     discovery.warnings.forEach(warn);
 
+    // The agent audit is one server call of ~15 seconds, so it runs while we crawl.
+    const agentsTask =
+      settings.agents === false
+        ? null
+        : postJson<AgentReport>("/api/agents", { url: discovery.startUrl }, signal, 1)
+            .then((report) => {
+              state.agents = report;
+              emit();
+            })
+            .catch((err) => {
+              if (!signal.aborted) state.agentsError = err instanceof Error ? err.message : "The agent check failed.";
+            });
+
     if (discovery.sitemap.urls.length) {
       await crawl("sitemap", discovery.sitemap.urls);
       if (!signal.aborted && ![...pages.values()].some(hasContent)) {
@@ -416,6 +448,11 @@ export async function runScan(
 
     if (settings.checkLinks && !signal.aborted) await linkPhase();
     if (settings.pagespeed && !signal.aborted) await pagespeedPhase();
+    if (agentsTask && !signal.aborted && !state.agents && !state.agentsError) {
+      state.phase = "agents";
+      emit(true);
+      await agentsTask;
+    }
     state.phase = signal.aborted ? "stopped" : "done";
   } catch (err) {
     if (signal.aborted) {

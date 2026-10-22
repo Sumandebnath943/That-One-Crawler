@@ -2,7 +2,16 @@ import * as cheerio from "cheerio";
 import type { AnyNode, Element } from "domhandler";
 import { extractFigures } from "@/lib/seo/figures";
 import { keywordCandidates } from "@/lib/seo/keywords";
-import { countWords, fleschReadingEase, injectionSignals, looksEnglish, splitSentences, WORD_RE } from "@/lib/seo/text";
+import { pickImageCandidate } from "@/lib/seo/images";
+import {
+  countWords,
+  fleschReadingEase,
+  hiddenInstructionSignals,
+  injectionSignals,
+  looksEnglish,
+  splitSentences,
+  WORD_RE,
+} from "@/lib/seo/text";
 import type { ArticleSchemaFields, BrandFindings, HeadingItem, PageData } from "@/lib/seo/types";
 import { bareHost, isCrawlableUrl, stripHash, urlKey } from "@/lib/seo/url";
 
@@ -12,6 +21,33 @@ const MAX_LINKS = 500;
 const MAX_EXTERNAL = 60;
 const MAX_IMAGES = 20;
 const INVISIBLE = "script, style, noscript, template, svg, iframe";
+/** Code samples and quotations show text; they don't instruct anyone. */
+const QUOTED = "pre, code, kbd, samp, blockquote, q";
+const HIDDEN_STYLE =
+  /(?:^|;)\s*(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?:\.0+)?\s*(?:;|$)|font-size\s*:\s*0(?:px|em|rem|%)?\s*(?:;|$)|(?:left|top|text-indent)\s*:\s*-\d{3,}(?:px|em|rem))/i;
+const HIDDEN_CLASS = /(?:^|\s)(?:sr-only|visually-hidden|screen-reader-text|hidden|d-none|invisible)(?:\s|$)/i;
+// Tailwind's "hidden md:flex" is a responsive menu, visible on bigger screens.
+const RESPONSIVE_SHOW = /(?:^|\s)(?:sm|md|lg|xl|2xl):(?:block|flex|grid|inline|inline-block|inline-flex|table|contents)(?:\s|$)/;
+/** Assistants that take a prompt in the URL, which "Summarize with AI" buttons fill in. */
+const AI_CHAT_HOSTS = /^(?:chatgpt\.com|chat\.openai\.com|claude\.ai|(?:www\.)?perplexity\.ai|gemini\.google\.com|copilot\.microsoft\.com|grok\.com)$/i;
+// Lighthouse's list of link texts that say nothing about where the link goes.
+const VAGUE_LINK_TEXT = new Set([
+  "click here",
+  "click this",
+  "go",
+  "here",
+  "information",
+  "learn more",
+  "more",
+  "more info",
+  "more information",
+  "right here",
+  "read more",
+  "see more",
+  "start",
+  "this",
+  "link",
+]);
 const NON_CONTENT = "nav, footer, aside";
 /** Site chrome: menus, sidebars, widgets and comment forms aren't the page's content. */
 const CHROME =
@@ -30,6 +66,7 @@ export type ExtractedContent = Omit<
   | "contentType"
   | "isHtml"
   | "loadTimeMs"
+  | "ttfbMs"
   | "sizeBytes"
   | "xRobotsTag"
 >;
@@ -44,15 +81,80 @@ export function clean(value: string | undefined | null): string {
 }
 
 /** Text of a node with spaces between elements, so "<p>a</p><p>b</p>" reads as "a b". */
-function spacedText(nodes: AnyNode[]): string {
+function spacedText(nodes: AnyNode[], skip?: (el: Element) => boolean): string {
   const parts: string[] = [];
   const walk = (node: AnyNode) => {
     if (node.type === "text") parts.push(node.data);
+    else if (skip && isElement(node) && skip(node)) return;
     else if ("children" in node) for (const child of node.children) walk(child);
     if (node.type === "tag") parts.push(" ");
   };
   nodes.forEach(walk);
   return clean(parts.join(""));
+}
+
+function isHiddenElement(el: Element): boolean {
+  const attribs = el.attribs ?? {};
+  if ("hidden" in attribs) return true;
+  if (HIDDEN_STYLE.test(attribs.style ?? "")) return true;
+  const cls = attribs.class ?? "";
+  return HIDDEN_CLASS.test(cls) && !RESPONSIVE_SHOW.test(cls);
+}
+
+/**
+ * Text a model reading the page sees but a visitor doesn't: hidden elements, comments and the prompts
+ * inside "ask an AI about this page" links (`unseen`), plus alt text and aria-labels (`labels`).
+ */
+function unseenTexts($: cheerio.CheerioAPI): { unseen: string[]; labels: string[] } {
+  const unseen: string[] = [];
+  const labels: string[] = [];
+  $("body *").each((_, el) => {
+    if (!isElement(el) || !isHiddenElement(el)) return;
+    // Only the outermost hidden element, so nested ones aren't read twice.
+    if ($(el).parents().toArray().some((p) => isElement(p) && isHiddenElement(p))) return;
+    // A code sample in a collapsed tab is still a code sample.
+    const text = spacedText([el], (child) => /^(?:script|style|pre|code|kbd|samp)$/.test(child.name));
+    if (text) unseen.push(text);
+  });
+  $("*")
+    .contents()
+    .each((_, node) => {
+      if (node.type === "comment" && clean(node.data)) unseen.push(clean(node.data));
+    });
+  $("a[href]").each((_, el) => {
+    try {
+      const url = new URL(clean($(el).attr("href")));
+      if (!AI_CHAT_HOSTS.test(url.hostname)) return;
+      const prompt = url.searchParams.get("q") ?? url.searchParams.get("prompt");
+      if (prompt) unseen.push(prompt);
+    } catch {
+      // Relative or malformed: not an AI prompt link.
+    }
+  });
+  $("[aria-label], [aria-description], [title], img[alt]").each((_, el) => {
+    for (const name of ["aria-label", "aria-description", "title", "alt"]) {
+      const value = clean($(el).attr(name));
+      if (value.length > 20) labels.push(value);
+    }
+  });
+  return { unseen, labels };
+}
+
+/** Has an explicit size, or can't move the layout (absolutely positioned, as Next.js "fill" images are). */
+function isSizedImage(img: cheerio.Cheerio<Element>): boolean {
+  const width = img.attr("width");
+  const height = img.attr("height");
+  if (width && height) return true;
+  const style = (img.attr("style") ?? "").toLowerCase();
+  if (img.attr("data-nimg") === "fill" || /position\s*:\s*(?:absolute|fixed)/.test(style)) return true;
+  const cssWidth = /(?:^|;)\s*width\s*:\s*(?!auto)[^;]+/.test(style);
+  const cssHeight = /(?:^|;)\s*height\s*:\s*(?!auto)[^;]+/.test(style);
+  const ratio = /aspect-ratio\s*:/.test(style);
+  if ((cssWidth || width) && (cssHeight || height || ratio)) return true;
+  if ((cssHeight || height) && ratio) return true;
+  // Utility classes that fix both sides (Tailwind's size-*, w-* with h-*, aspect-*).
+  const cls = img.attr("class") ?? "";
+  return /(?:^|\s)size-\S+/.test(cls) || (/(?:^|\s)w-(?!auto)\S+/.test(cls) && /(?:^|\s)(?:h-(?!auto)\S+|aspect-\S+)/.test(cls));
 }
 
 function resolve(href: string | undefined, base: string): string {
@@ -197,8 +299,10 @@ export function readSource(html: string): PageSource {
     if (!metaDescription && clean($(el).attr("name")).toLowerCase() === "description") metaDescription = clean($(el).attr("content"));
   });
   const titleEl = $("head title").first().length ? $("head title").first() : $("title").first();
+  const unseen = unseenTexts($);
   $(INVISIBLE).remove();
-  const fullText = spacedText($("body").toArray());
+  const quoted = new Set(QUOTED.split(", "));
+  const prose = spacedText($("body").toArray(), (el) => quoted.has(el.name) || isHiddenElement(el));
   const isChrome = chromeTest($);
   const elements = $("h1, h2, h3, h4, p, li, blockquote")
     .toArray()
@@ -233,7 +337,7 @@ export function readSource(html: string): PageSource {
     sections: done,
     outline,
     text: [introText, ...done.map((s) => `## ${s.heading}\n\n${s.text}`)].join("\n\n"),
-    injection: injectionSignals(`${metaDescription} ${fullText}`),
+    injection: [...injectionSignals(`${metaDescription} ${prose}`), ...hiddenInstructionSignals(unseen.unseen, unseen.labels)],
   };
 }
 
@@ -263,12 +367,25 @@ export function extractContent(html: string, pageUrl: string, baseDomain: string
   const h1All = headingTexts("h1");
 
   let canonicalUrl = "";
+  const canonicals = new Set<string>();
   const hreflang: string[] = [];
+  let markdownAlternate = "";
   $("link[rel]").each((_, el) => {
     const rel = relTokens($(el).attr("rel"));
-    if (!canonicalUrl && rel.includes("canonical")) canonicalUrl = resolve($(el).attr("href"), base);
+    if (rel.includes("canonical")) {
+      const href = resolve($(el).attr("href"), base);
+      if (!canonicalUrl) canonicalUrl = href;
+      if (href) canonicals.add(urlKey(href));
+    }
     const lang = clean($(el).attr("hreflang"));
     if (lang && rel.includes("alternate")) hreflang.push(lang);
+    if (!markdownAlternate && rel.includes("alternate") && /markdown/i.test(clean($(el).attr("type")))) {
+      markdownAlternate = resolve($(el).attr("href"), base);
+    }
+  });
+  let metaRefresh = "";
+  $("meta[http-equiv]").each((_, el) => {
+    if (!metaRefresh && clean($(el).attr("http-equiv")).toLowerCase() === "refresh") metaRefresh = clean($(el).attr("content")) || "0";
   });
 
   // ---- Images ----
@@ -281,21 +398,35 @@ export function extractContent(html: string, pageUrl: string, baseDomain: string
   images.each((index, el) => {
     const img = $(el);
     if (img.attr("alt") === undefined) imagesMissingAlt += 1;
-    const width = img.attr("width");
-    const height = img.attr("height");
-    const tracking = width === "1" || height === "1";
-    if (!tracking && !(width && height)) missingSize += 1;
+    const tracking = img.attr("width") === "1" || img.attr("height") === "1";
+    if (!tracking && !isSizedImage(img)) missingSize += 1;
     if (index > 0 && img.attr("loading") !== "lazy") notLazy += 1;
     const src = resolve(img.attr("src") || img.attr("data-src") || img.attr("data-lazy-src"), base);
-    const modern = /\.(webp|avif)\b/i.test(`${img.attr("srcset") ?? ""} ${img.parent("picture").html() ?? ""}`);
+    const srcset = img.attr("srcset") || img.attr("data-srcset");
+    const modern = /\.(webp|avif)\b/i.test(`${srcset ?? ""} ${img.parent("picture").html() ?? ""}`);
     if (/\.(jpe?g|png|gif)(\?|#|$)/i.test(src) && !modern) legacyFormat += 1;
-    if (src.startsWith("http") && imageSrcs.length < MAX_IMAGES && !imageSrcs.includes(src)) imageSrcs.push(src);
+    // Weigh and check the variant a desktop browser would download, not the oversized fallback in src.
+    const picked = resolve(pickImageCandidate(src, srcset, img.attr("sizes")), base) || src;
+    if (picked.startsWith("http") && imageSrcs.length < MAX_IMAGES && !imageSrcs.includes(picked)) imageSrcs.push(picked);
   });
+
+  // ---- Mixed content: http:// files on an https:// page ----
+  const insecureResources: string[] = [];
+  if (pageUrl.startsWith("https:")) {
+    $("img[src], script[src], iframe[src], video[src], audio[src], source[src], link[href]").each((_, el) => {
+      const node = $(el);
+      if (el.name === "link" && !relTokens(node.attr("rel")).some((r) => r === "stylesheet" || r === "icon" || r === "preload")) return;
+      const value = clean(node.attr("src") ?? node.attr("href"));
+      if (/^http:\/\//i.test(value) && insecureResources.length < 10 && !insecureResources.includes(value)) insecureResources.push(value);
+    });
+  }
 
   // ---- Links ----
   const links: string[] = [];
   const outlinksExternal: string[] = [];
   const seen = new Set<string>();
+  const vagueLinks: string[] = [];
+  let vagueLinkCount = 0;
   let internalLinks = 0;
   let externalLinks = 0;
   $("a[href]").each((_, el) => {
@@ -305,6 +436,12 @@ export function extractContent(html: string, pageUrl: string, baseDomain: string
     if (!href) return;
     const parsed = new URL(href);
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return;
+    const label = clean($(el).attr("aria-label")).toLowerCase();
+    const linkText = spacedText([el]).toLowerCase().replace(/[^\p{L}\p{N} ]+/gu, "").trim();
+    if (VAGUE_LINK_TEXT.has(linkText) && (!label || VAGUE_LINK_TEXT.has(label))) {
+      vagueLinkCount += 1;
+      if (vagueLinks.length < 5 && !vagueLinks.includes(linkText)) vagueLinks.push(linkText);
+    }
     const target = stripHash(href);
     if (bareHost(parsed.hostname) === baseDomain) {
       internalLinks += 1;
@@ -345,8 +482,12 @@ export function extractContent(html: string, pageUrl: string, baseDomain: string
     $("noscript").text(),
   );
 
+  const unseen = unseenTexts($);
   $(INVISIBLE).remove();
   const fullText = spacedText($("body").toArray());
+  // What a reader sees as prose: no code samples, quotations or hidden elements.
+  const quoted = new Set(QUOTED.split(", "));
+  const prose = spacedText($("body").toArray(), (el) => quoted.has(el.name) || isHiddenElement(el));
 
   // ---- Content (site chrome excluded) ----
   const isChrome = chromeTest($);
@@ -473,12 +614,20 @@ export function extractContent(html: string, pageUrl: string, baseDomain: string
     internalLinks,
     externalLinks,
     outlinksExternal,
+    vagueLinks,
+    vagueLinkCount,
     imageCount: images.length,
     imagesMissingAlt,
     imageStats: { missingSize, notLazy, legacyFormat },
     imageSrcs,
+    insecureResources,
+    canonicalCount: canonicals.size,
+    metaRefresh,
+    markdownAlternate,
+    contentChars: bodyText.length,
     likelyNeedsJs: wordCount < 60 && (appShellEmpty || noscriptAsksForJs),
-    injectionSignals: injectionSignals(`${metaDescription} ${fullText}`),
+    injectionSignals: injectionSignals(`${metaDescription} ${prose}`),
+    hiddenInstructions: hiddenInstructionSignals(unseen.unseen, unseen.labels),
     brand: checkRules(`${title} ${metaDescription} ${fullText}`, rules),
     links,
   };

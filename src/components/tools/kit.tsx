@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useId, useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useId, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { signalForm } from "@/lib/client/quirks";
 import { DEFAULT_PAGE_LIMIT } from "@/lib/limits";
 import type { PageRow } from "@/lib/seo/issues";
@@ -13,6 +13,7 @@ const BAD_URL = "That doesn't look like a web address. Try something like myblog
 
 /** Page counts offered by the site-wide tools. */
 export const TOOL_PAGE_OPTIONS = [25, 50, 100, 250, 500];
+const INITIAL_PAGES = Math.min(DEFAULT_PAGE_LIMIT, 100);
 
 /** The URL box every tool starts with. Site tools add a page-count picker. */
 export function ToolForm({
@@ -31,8 +32,25 @@ export function ToolForm({
 }) {
   const id = useId();
   const [url, setUrl] = useState("");
-  const [maxPages, setMaxPages] = useState(Math.min(DEFAULT_PAGE_LIMIT, 100));
+  const [maxPages, setMaxPages] = useState(INITIAL_PAGES);
   const [error, setError] = useState<string | null>(null);
+  const submitRef = useRef(onSubmit);
+  useEffect(() => {
+    submitRef.current = onSubmit;
+  });
+
+  // A link like /page-speed-test?url=… runs the tool straight away (the report's page details use it).
+  useEffect(() => {
+    const given = new URLSearchParams(window.location.search).get("url");
+    const normalized = given ? normalizeInputUrl(given) : null;
+    if (!given || !normalized) return;
+    // A tick later, so it runs once even when React mounts the form twice in development.
+    const timer = setTimeout(() => {
+      setUrl(given);
+      submitRef.current(normalized, INITIAL_PAGES);
+    }, 0);
+    return () => clearTimeout(timer);
+  }, []);
 
   const submit = (event: FormEvent) => {
     event.preventDefault();

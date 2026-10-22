@@ -1,3 +1,4 @@
+import { SLOW_TTFB_MS } from "@/lib/seo/issues";
 import { emptyPage, type PageData } from "@/lib/seo/types";
 import { extractContent, type PageRulesInput } from "./extract";
 import { BlockedUrlError, decodeBody, safeFetch } from "./safe-fetch";
@@ -25,6 +26,12 @@ export async function analyzeUrl(
     throw err;
   }
 
+  // One slow answer is often a cold cache. Time it once more before calling the page slow.
+  if (!res.error && res.status < 400 && res.ttfbMs > SLOW_TTFB_MS) {
+    const again = await safeFetch(res.finalUrl, { baseDomain, signal, maxBytes: 1 }).catch(() => null);
+    if (again && !again.error && again.ttfbMs) res = { ...res, ttfbMs: Math.min(res.ttfbMs, again.ttfbMs) };
+  }
+
   const contentType = res.headers?.get("content-type") ?? "";
   const network = {
     finalUrl: res.finalUrl,
@@ -34,6 +41,7 @@ export async function analyzeUrl(
     offsiteRedirect: res.offsiteRedirect,
     contentType,
     loadTimeMs: res.timeMs,
+    ttfbMs: res.ttfbMs,
     sizeBytes: res.sizeBytes,
     xRobotsTag: res.headers?.get("x-robots-tag") ?? "",
   };

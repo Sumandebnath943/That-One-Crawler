@@ -4,10 +4,12 @@ import { useMemo, useState } from "react";
 import { contextFor, isRunning } from "@/lib/client/crawl";
 import { toast } from "@/lib/client/quirks";
 import { checkedLinks, csvCell, downloadText, usedOn, type CheckedKind } from "@/lib/client/tools";
+import { issuePromptItems } from "@/lib/seo/prompt";
 import { brokenLinkReport, buildRows } from "@/lib/seo/report";
 import { displayPath } from "@/lib/seo/url";
 import { StatusBadge } from "../scan/bits";
 import { ProgressPanel } from "../scan/ProgressPanel";
+import { PromptButton } from "../scan/PromptDialog";
 import { FullAuditLinks, ResultBlock, Segmented, StatGrid, StatTile, ToolError, ToolForm } from "./kit";
 import { useSiteScan } from "./use-site-scan";
 
@@ -60,7 +62,7 @@ export function BrokenLinkTool({ action, placeholder }: { action: string; placeh
     const rows = buildRows(scan.pages, contextFor(scan));
     const checked = checkedLinks(rows, scan.linkChecks);
     const found = usedOn(rows);
-    const broken: Item[] = brokenLinkReport(rows).map((t) => ({ url: t.url, status: t.status, kind: t.kind, foundOn: t.linkedFrom }));
+    const broken: Item[] = brokenLinkReport(rows).map((t) => ({ url: t.url, status: t.status, kind: t.kind, foundOn: t.linkedFrom, note: t.note }));
     const pick = (state: string): Item[] => checked.filter((c) => c.state === state).map((c) => ({ ...c, note: c.error }));
     const heavy = new Map<string, Item>();
     for (const row of rows) {
@@ -70,10 +72,12 @@ export function BrokenLinkTool({ action, placeholder }: { action: string; placeh
     }
     const order = { broken: 0, error: 1, blocked: 2, ok: 3 } as const;
     const all: Item[] = [...checked].sort((a, b) => order[a.state] - order[b.state]).map((c) => ({ ...c, note: c.error }));
+    const linkCodes = new Set(["broken", "soft-404", "broken-links", "heavy-images", "redirected", "offsite-redirect", "vague-link-text"]);
     return {
       pages: rows.filter((r) => r.hasContent).length,
       checked: checked.length,
       lists: { broken, blocked: pick("blocked"), errors: pick("error"), heavy: [...heavy.values()], all } satisfies Record<View, Item[]>,
+      prompt: issuePromptItems(rows).filter((i) => i.code && linkCodes.has(i.code)),
     };
   }, [scan]);
 
@@ -100,7 +104,7 @@ export function BrokenLinkTool({ action, placeholder }: { action: string; placeh
         onSubmit={(url, maxPages) => {
           setView("broken");
           setShowAll(false);
-          start({ url, maxPages, pagespeed: false, checkLinks: true, brandRules: null });
+          start({ url, maxPages, pagespeed: false, checkLinks: true, brandRules: null, agents: false });
         }}
       />
       {scan && running && <ProgressPanel scan={scan} onStop={stop} />}
@@ -125,14 +129,20 @@ export function BrokenLinkTool({ action, placeholder }: { action: string; placeh
           <ResultBlock
             title={view === "broken" && !items.length ? "No broken links. Every link went somewhere." : "Results"}
             aside={
-              <button
-                type="button"
-                onClick={exportCsv}
-                disabled={!items.length}
-                className="rounded-lg border-2 border-ink bg-card px-3 py-1.5 text-sm font-bold transition hover:-translate-y-0.5 hover:shadow-brutal-sm disabled:opacity-50"
-              >
-                Download CSV
-              </button>
+              <div className="flex flex-wrap gap-2">
+                <PromptButton
+                  items={results.prompt}
+                  context={{ site: scan.startUrl, scores: [`${results.lists.broken.length} broken links and images`], scope: `a link check of ${results.pages} pages` }}
+                />
+                <button
+                  type="button"
+                  onClick={exportCsv}
+                  disabled={!items.length}
+                  className="rounded-lg border-2 border-ink bg-card px-3 py-1.5 text-sm font-bold transition hover:-translate-y-0.5 hover:shadow-brutal-sm disabled:opacity-50"
+                >
+                  Download CSV
+                </button>
+              </div>
             }
           >
             <Segmented

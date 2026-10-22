@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import type { ScanState } from "@/lib/client/crawl";
-import { CRAWLING_QUIPS, DISCOVERY_QUIPS, LINK_QUIPS, PAGESPEED_QUIPS } from "@/lib/client/jokes";
+import { AGENT_QUIPS, CRAWLING_QUIPS, DISCOVERY_QUIPS, LINK_QUIPS, PAGESPEED_QUIPS } from "@/lib/client/jokes";
 import { displayPath } from "@/lib/seo/url";
 import { Mascot } from "../Mascot";
 
@@ -33,6 +33,9 @@ export function ProgressPanel({ scan, onStop }: { scan: ScanState; onStop: () =>
     quips = PAGESPEED_QUIPS;
     done = scan.psDone;
     total = scan.psTotal;
+  } else if (scan.phase === "agents") {
+    label = "Finishing the AI agent check";
+    quips = AGENT_QUIPS;
   } else if (scan.phase === "links") {
     label = "Checking links and images";
     quips = LINK_QUIPS;

@@ -41,6 +41,7 @@ const CATEGORY_ORDER: IssueCategory[] = [
   "Structured data",
   "AI search",
   "Performance",
+  "Security",
   "Brand rules",
 ];
 
@@ -81,7 +82,7 @@ export default function ChecksIndex() {
       <PageIntro
         eyebrow="SEO checks, explained"
         title="Every SEO check we run, explained in plain English"
-        answer="That One Crawler runs over 45 checks on every page of your blog, from missing H1s and title length to broken links, keyword cannibalization and AI search readiness. Each guide below explains what a problem means, why it matters and exactly how to fix it, in under five minutes of reading."
+        answer="That One Crawler runs over 50 checks on every page of your blog, from missing H1s and title length to broken links, keyword cannibalization and AI search readiness. Each guide below explains what a problem means, why it matters and exactly how to fix it, in under five minutes of reading."
         crumbs={crumbs}
       />
       <div className="shell space-y-14 py-12 lg:py-16">

@@ -7,10 +7,11 @@ import {
   META_MIN,
   readingMinutes,
   SEVERITY_ORDER,
-  TITLE_MAX,
+  TITLE_MAX_PX,
   TITLE_MIN,
   type PageRow,
 } from "@/lib/seo/issues";
+import { titleWidth } from "@/lib/seo/pixels";
 import { displayPath } from "@/lib/seo/url";
 import { IssueChip, MetricBadge, ScoreBadge, StatusBadge } from "./bits";
 
@@ -126,7 +127,17 @@ export const COLUMNS: Column[] = [
     group: "basic",
     width: "w-20",
     sort: (r) => (r.hasContent ? r.title.length : null),
-    render: (r) => length(r.title.length, TITLE_MIN, TITLE_MAX, r.hasContent),
+    // Colored by pixel width, which is what decides whether Google cuts it off.
+    render: (r) => {
+      if (!r.hasContent) return dash;
+      const px = titleWidth(r.title);
+      const tone = !r.title ? "text-crit" : r.title.length < TITLE_MIN || px > TITLE_MAX_PX ? "text-warn" : "text-good";
+      return (
+        <span className={`font-mono text-xs font-bold ${tone}`} title={`~${px}px of ${TITLE_MAX_PX}px`}>
+          {r.title.length}
+        </span>
+      );
+    },
   },
   { key: "h1", label: "H1", group: "basic", width: "min-w-48 max-w-64", sort: (r) => r.h1[0] ?? "", render: (r) => list(r.h1) },
   {
@@ -154,12 +165,18 @@ export const COLUMNS: Column[] = [
     render: (r) => length(r.metaDescription.length, META_MIN, META_MAX, r.hasContent),
   },
   {
-    key: "load",
-    label: "Load",
+    key: "ttfb",
+    label: "TTFB",
     group: "technical",
     width: "w-20",
-    sort: (r) => r.loadTimeMs,
-    render: (r) => <MetricBadge value={r.loadTimeMs} good={1000} ok={3000} suffix="ms" higherIsBetter={false} />,
+    sort: (r) => r.ttfbMs || r.loadTimeMs,
+    // web.dev: good up to 0.8s, poor over 1.8s. Older scans only have the download time.
+    render: (r) =>
+      r.ttfbMs ? (
+        <MetricBadge value={r.ttfbMs} good={800} ok={1800} suffix="ms" higherIsBetter={false} />
+      ) : (
+        <MetricBadge value={r.loadTimeMs} good={1000} ok={3000} suffix="ms" higherIsBetter={false} />
+      ),
   },
   {
     key: "size",
@@ -245,7 +262,7 @@ export const COLUMNS: Column[] = [
   },
   {
     key: "aiScore",
-    label: "AI ready",
+    label: "AI search",
     group: "content",
     width: "w-20",
     sort: (r) => r.aiScore,

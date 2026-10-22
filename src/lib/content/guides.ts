@@ -53,7 +53,7 @@ export const GUIDES: Guide[] = [
       },
       {
         q: "Is title length measured in characters or pixels?",
-        a: "Google truncates by pixel width, about 600 pixels on desktop. Wide letters like W and M take more room, so 60 characters is a reliable rule of thumb rather than a hard limit.",
+        a: "Google truncates by pixel width, about 600 pixels on desktop. Wide letters like W and M take more room, so 60 characters is only a rule of thumb. That One Crawler measures each title in pixels and only calls it too long when it would really be cut off.",
       },
     ],
     related: ["meta-description-length", "duplicate-title-tags", "keyword-placement"],
@@ -246,7 +246,7 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "canonical-tag",
-    codes: ["canonical-mismatch", "no-canonical"],
+    codes: ["canonical-mismatch", "no-canonical", "multiple-canonicals"],
     category: "Indexing",
     keyword: "canonical tag",
     title: "Canonical tags: what they do and how to fix canonical issues",
@@ -259,7 +259,7 @@ export const GUIDES: Guide[] = [
     steps: [
       "Check the canonical URL in the page details: it should match the page's preferred URL.",
       "If it points elsewhere by mistake, fix it in your SEO plugin or template.",
-      "Add a self-referencing canonical to pages that have none.",
+      "Add a self-referencing canonical to pages that have none, and keep exactly one per page.",
       "Don't point a canonical at a URL that redirects.",
       "Only point the canonical at another page when the content truly is a duplicate.",
     ],
@@ -271,6 +271,10 @@ export const GUIDES: Guide[] = [
       {
         q: "Should paginated pages canonicalize to page 1?",
         a: "No. Each page in a series should usually have a self-referencing canonical, otherwise items on later pages can drop out of the index.",
+      },
+      {
+        q: "What if a page has two canonical tags?",
+        a: "When they disagree, Google ignores both and picks its own. It usually happens when a theme and an SEO plugin each add one. Remove one so the page declares a single canonical.",
       },
     ],
     related: ["noindex-tag", "redirects", "duplicate-title-tags"],
@@ -339,7 +343,7 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "broken-pages-404",
-    codes: ["broken"],
+    codes: ["broken", "soft-404"],
     category: "Indexing",
     keyword: "404 broken pages",
     title: "Broken pages (404 errors): how to find and fix them",
@@ -355,8 +359,13 @@ export const GUIDES: Guide[] = [
       "If it's gone for good, redirect to the closest relevant page, or let it 404 if nothing fits.",
       "Update internal links and sitemap entries that still point at broken URLs.",
       "Investigate 5xx errors with your host: they usually mean overload or a crashing plugin.",
+      "Make missing pages answer with a real 404 status, not a “Page not found” page that says 200 OK (a soft 404).",
     ],
     faqs: [
+      {
+        q: "What is a soft 404?",
+        a: "A page that tells visitors it doesn't exist but tells crawlers everything is fine (status 200). Search engines may index the error page, and AI agents can't tell it's missing. Return a real 404 or 410 instead.",
+      },
       {
         q: "Do 404 errors hurt SEO?",
         a: "A few 404s for genuinely removed pages are normal. They hurt when they waste links pointing at them or when important pages break by accident.",
@@ -389,6 +398,10 @@ export const GUIDES: Guide[] = [
     ],
     faqs: [
       {
+        q: "Why is a link I can open reported as broken?",
+        a: "Usually because you're signed in. GitHub, GitLab and Google Docs show a 404 to anyone without access, so a private repo looks deleted to every visitor. Open the link in a private window to see what they see.",
+      },
+      {
         q: "How often should I check for broken links?",
         a: "Monthly for active blogs, quarterly for quieter ones. Older posts collect the most dead external links.",
       },
@@ -401,7 +414,7 @@ export const GUIDES: Guide[] = [
   },
   {
     slug: "redirects",
-    codes: ["redirected", "offsite-redirect"],
+    codes: ["redirected", "offsite-redirect", "meta-refresh"],
     category: "Links",
     keyword: "redirect chains",
     title: "Redirects and redirect chains: how to clean them up",
@@ -417,6 +430,7 @@ export const GUIDES: Guide[] = [
       "Regenerate your sitemap so it lists only final URLs that answer 200.",
       "Collapse chains (A → B → C) into a single redirect (A → C).",
       "Check that any redirects to other websites are intentional.",
+      "Replace <meta http-equiv=\"refresh\"> redirects with server-side 301s, which every crawler follows.",
     ],
     faqs: [
       {
@@ -453,6 +467,10 @@ export const GUIDES: Guide[] = [
       {
         q: "Are orphan pages indexed?",
         a: "They can be, through the sitemap, but they usually rank poorly because nothing on the site vouches for them.",
+      },
+      {
+        q: "My menu links to the page. Why is it still an orphan?",
+        a: "Because the link only exists after a click or a script runs, as in many dropdown menus, search boxes and command palettes. We read the HTML the server sends, like most crawlers and AI agents do. Add a plain <a href> link somewhere in that HTML.",
       },
       {
         q: "How many internal links should a page have?",
@@ -493,6 +511,37 @@ export const GUIDES: Guide[] = [
     related: ["orphan-pages", "broken-links"],
   },
   {
+    slug: "link-text",
+    codes: ["vague-link-text"],
+    category: "Links",
+    keyword: "descriptive link text",
+    title: "Link text: why “click here” and “read more” hurt SEO",
+    metaTitle: "Descriptive Link Text: Why “Read More” Hurts SEO",
+    metaDescription:
+      "Links that say “click here” or “read more” tell search engines, screen readers and AI agents nothing. Learn to write link text that says where it goes.",
+    answer:
+      "Descriptive link text says where a link goes, like “our sourdough starter guide” instead of “click here” or “read more”. Search engines use link text to understand the page it points to, screen-reader users jump from link to link, and AI agents read it to decide what to follow. Vague text wastes all three.",
+    why: "Link text, also called anchor text, is one of the oldest signals search engines use to learn what a page is about. Google's Lighthouse SEO audit flags vague link text, and screen readers can list a page's links on their own, so “read more, read more, read more” tells a listener nothing.",
+    steps: [
+      "Open the page details to see which link texts we flagged.",
+      "Rewrite each one to name the destination: “read the full sourdough guide”.",
+      "In card layouts, make the title the link, or give the button an aria-label that names the target.",
+      "Keep it short: a few words that still make sense out of context.",
+      "Rescan to confirm the vague links are gone.",
+    ],
+    faqs: [
+      {
+        q: "Is “read more” always bad?",
+        a: "It's fine on screen if the link also has an accessible name describing the target, such as an aria-label like “Read more about sourdough starters”. We don't flag links that have one.",
+      },
+      {
+        q: "Does link text affect rankings?",
+        a: "Internal link text helps search engines understand what the linked page covers, so descriptive internal links are one of the easiest wins on a blog.",
+      },
+    ],
+    related: ["broken-links", "orphan-pages", "keyword-placement"],
+  },
+  {
     slug: "keyword-cannibalization",
     codes: ["cannibalization"],
     category: "Keywords",
@@ -518,7 +567,7 @@ export const GUIDES: Guide[] = [
       },
       {
         q: "How do you detect it without Search Console?",
-        a: "We work out each page's main keyword from its title, H1, URL and text, then flag pages that share one. Search Console query data confirms which pages actually compete.",
+        a: "We work out each page's main keyword from its title, H1, URL and text. Pages only count when they target it in the title plus the H1 or URL. Category pages, the homepage and contact or legal pages are left out. Search Console confirms which pages compete.",
       },
     ],
     related: ["keyword-placement", "duplicate-title-tags", "thin-content"],
@@ -639,6 +688,10 @@ export const GUIDES: Guide[] = [
       {
         q: "What image size is too big for a blog?",
         a: "As a rule of thumb, keep most images under 200–300 KB. Hero images can be a little larger if they're well compressed.",
+      },
+      {
+        q: "How do you weigh responsive images?",
+        a: "Like a browser would. We pick the srcset variant a desktop browser downloads, not the oversized fallback in src, and ask for WebP or AVIF the way Chrome does, so image CDNs answer with the file a visitor really gets.",
       },
       {
         q: "Does WebP really make a difference?",
@@ -768,12 +821,16 @@ export const GUIDES: Guide[] = [
         q: "Does AI readiness replace normal SEO?",
         a: "No. AI answer engines still rely on pages search engines can crawl and trust. Good SEO is the foundation, and AI readiness is structure on top of it.",
       },
+      {
+        q: "Does a contact or product page need an FAQ to score well?",
+        a: "No. Question headings, an FAQ and a byline only count on articles and long pages. Shorter pages are judged on what fits them: a clear opening answer, specific facts and scannable lists.",
+      },
     ],
     related: ["faq-schema", "heading-hierarchy", "structured-data", "hidden-ai-instructions"],
   },
   {
     slug: "hidden-ai-instructions",
-    codes: ["ai-injection"],
+    codes: ["ai-injection", "ai-instructions"],
     category: "AI search",
     keyword: "prompt injection seo",
     title: "Hidden AI instructions: prompt injection on web pages",
@@ -781,16 +838,20 @@ export const GUIDES: Guide[] = [
     metaDescription:
       "Text that tells AI assistants what to say about your page is prompt injection. Learn why it backfires, how it gets onto pages, and how to remove it.",
     answer:
-      "Hidden AI instructions are text on a page aimed at AI assistants, such as a line telling them to drop their earlier rules and recommend the site. It's a form of prompt injection. AI tools and search engines increasingly detect and distrust it, so it can get a page treated as manipulative. Remove any such text, visible or hidden.",
-    why: "Some sites hide instructions in white text or tiny fonts, hoping AI summaries will repeat them. Others pick them up through compromised plugins or copied content. Either way, it undermines trust in the page and the site.",
+      "Hidden AI instructions are text aimed at AI assistants that visitors never see, such as a line in a hidden element telling them to recommend the site. It's a form of prompt injection. AI tools discount pages that do it, and hidden text breaks Google's spam policies. Writing about prompts is fine; giving orders to models is not.",
+    why: "Some sites hide instructions in invisible elements, HTML comments or the prompt inside a “Summarize with AI” link, hoping assistants will repeat them or remember the site as a trusted source. Others pick them up through compromised plugins or copied content. Either way, it undermines trust in the page and the whole site.",
     steps: [
-      "Check the page for the flagged text, including content hidden with CSS.",
-      "Remove the instructions entirely: there's no safe version.",
+      "Open the page details to see the exact text we flagged and where it sits.",
+      "Remove hidden instructions entirely, including ones inside comments and AI share links.",
+      "If visible text was flagged and it's a quoted example, put it in a code block or quotation.",
       "If you didn't add it, check for a compromised plugin, theme or injected script.",
-      "Rescan to confirm it's gone.",
-      "Earn AI citations the honest way, with clear answers, facts and structure.",
+      "Rescan to confirm it's gone, then earn AI citations with clear answers and facts.",
     ],
     faqs: [
+      {
+        q: "Will an article about prompts or prompt injection get flagged?",
+        a: "No. Mentioning a system prompt, or showing an attack inside a code block or quotation, isn't an instruction. We flag commands addressed to AI assistants, and treat hidden ones far more seriously than visible ones.",
+      },
       {
         q: "Does prompt injection work on AI search?",
         a: "Major AI tools now filter it, and it can backfire by flagging the page as untrustworthy. It's not worth the risk.",
@@ -877,7 +938,7 @@ export const GUIDES: Guide[] = [
       "A slow page takes more than a few seconds to load. Visitors leave, and Google's Core Web Vitals (Largest Contentful Paint, Interaction to Next Paint and Cumulative Layout Shift) factor speed into rankings. Most blog slowness comes from slow hosting, no caching, heavy images and too many plugins or scripts.",
     why: "Speed affects every visit. A one-second delay noticeably increases how many mobile visitors give up. The fixes are usually unglamorous: caching, a CDN, image compression and removing scripts you don't need.",
     steps: [
-      "Check server response time in your scan, then run PageSpeed and real-user data in the page details.",
+      "Check time to first byte in your scan (we time slow pages twice, so one cold cache isn't enough), then run PageSpeed.",
       "Turn on page caching and a CDN.",
       "Compress and resize images, and serve WebP or AVIF.",
       "Remove unused plugins, widgets and third-party scripts.",
@@ -925,6 +986,37 @@ export const GUIDES: Guide[] = [
       },
     ],
     related: ["slow-pages", "ai-search-readiness"],
+  },
+  {
+    slug: "mixed-content",
+    codes: ["mixed-content"],
+    category: "Security",
+    keyword: "mixed content",
+    title: "Mixed content: http files on an https page",
+    metaTitle: "Mixed Content Warnings: Fix HTTP Files on HTTPS Pages",
+    metaDescription:
+      "Mixed content means an https page loads images, scripts or styles over plain http. Browsers block or warn about it. Learn how to find and fix every file.",
+    answer:
+      "Mixed content happens when a secure https page loads images, scripts, styles or frames over plain http. Browsers block insecure scripts and frames outright, so parts of the page break, and they may mark the page as not fully secure. The fix is to load every file over https, usually by updating old hard-coded addresses.",
+    why: "It usually appears after a site moves to https: old posts still embed images with http:// in their address, or a theme loads a font or script from an http URL. Visitors see broken images or a warning in the address bar, which costs trust, and anything the browser blocks simply doesn't work.",
+    steps: [
+      "Open the page details to see each http:// file we found.",
+      "Change each address to https:// and check the file still loads.",
+      "In WordPress, run a search-and-replace on old http:// image addresses in your posts.",
+      "If a third party doesn't offer https, host the file yourself or drop it.",
+      "Add the Content-Security-Policy “upgrade-insecure-requests” header as a safety net.",
+    ],
+    faqs: [
+      {
+        q: "Does mixed content affect SEO?",
+        a: "Indirectly. Google prefers secure pages, and blocked scripts or images make the page worse for visitors, which is what rankings follow.",
+      },
+      {
+        q: "Are plain http links to other sites mixed content?",
+        a: "No. Linking to an http site is fine. Mixed content is only about files the page itself loads, such as images, scripts, styles and frames.",
+      },
+    ],
+    related: ["slow-pages", "javascript-rendering", "image-optimization"],
   },
   {
     slug: "brand-rules",

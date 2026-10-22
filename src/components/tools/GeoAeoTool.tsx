@@ -2,11 +2,13 @@
 
 import { useRef, useState, type ReactNode } from "react";
 import { analyzePage, unreadableReason } from "@/lib/client/tools";
-import { aiReadinessChecks, type PageRow } from "@/lib/seo/issues";
+import { aiReadinessChecks, ISSUES, type PageRow } from "@/lib/seo/issues";
+import { aiChecklistPromptItems, issuePromptItems } from "@/lib/seo/prompt";
 import type { AiFaq, AiHeadings, AiIntro, AiResult } from "@/lib/seo/types";
 import { aiRequestBase, AiRunnerError, FaqAiCard, HeadingsAiCard, IntroAiCard, useAiRunner } from "../scan/ai-cards";
 import { AiQuotaBar } from "../scan/ai-ui";
 import { ScoreRing } from "../scan/bits";
+import { PromptButton } from "../scan/PromptDialog";
 import { CheckedPage, FullAuditLinks, ResultBlock, ToolError, ToolForm } from "./kit";
 
 function verdict(score: number | null): { title: string; body: string } {
@@ -64,9 +66,13 @@ export function GeoAeoTool({ action, placeholder }: { action: string; placeholde
   };
 
   const checks = row ? aiReadinessChecks(row) : [];
-  const passed = checks.filter((c) => c.earned === c.points).length;
+  const applicable = checks.filter((c) => c.applies);
+  const passed = applicable.filter((c) => c.earned === c.points).length;
   const summary = verdict(row?.aiScore ?? null);
   const geo = row?.geo;
+  const promptItems = row
+    ? [...aiChecklistPromptItems(row), ...issuePromptItems([row]).filter((i) => i.code && ["AI search", "Structured data"].includes(ISSUES[i.code].category))]
+    : [];
 
   return (
     <div className="space-y-6">
@@ -75,7 +81,15 @@ export function GeoAeoTool({ action, placeholder }: { action: string; placeholde
       {error && <ToolError>{error}</ToolError>}
       {row && geo && (
         <div className="rise space-y-6">
-          <CheckedPage row={row} />
+          <CheckedPage
+            row={row}
+            aside={
+              <PromptButton
+                items={promptItems}
+                context={{ site: row.finalUrl, scores: [`AI search readiness ${row.aiScore ?? "—"}/100`], scope: "a single-page GEO/AEO check" }}
+              />
+            }
+          />
 
           <div className="grid items-center gap-6 rounded-2xl border-2 border-ink bg-paper p-5 sm:grid-cols-[auto_minmax(0,1fr)]">
             <ScoreRing score={row.aiScore} label="AI readiness" kind="ai" size="lg" />
@@ -84,17 +98,23 @@ export function GeoAeoTool({ action, placeholder }: { action: string; placeholde
               <h3 className="font-display text-3xl font-extrabold tracking-tight">{summary.title}</h3>
               <p className="mt-1 text-ink-2">{summary.body}</p>
               <p className="mt-3 text-sm text-ink-3">
-                Passes <b className="text-ink">{passed}</b> of {checks.length} checks · classic SEO score{" "}
+                Passes <b className="text-ink">{passed}</b> of {applicable.length} checks that fit this page · classic SEO score{" "}
                 <b className="text-ink">{row.score ?? "—"}</b>/100
               </p>
             </div>
           </div>
 
-          {row.injectionSignals.length > 0 && (
+          {row.hiddenInstructions.length > 0 && (
             <ToolError>
-              This page contains text that looks like instructions aimed at AI assistants (“{row.injectionSignals[0]}”). AI tools may
-              treat the page as manipulative. Remove it.
+              Hidden text on this page gives instructions to AI assistants (“{row.hiddenInstructions[0]}”). That&apos;s prompt injection: AI
+              tools discount pages that do it, and hidden text breaks Google&apos;s spam policies. Remove it.
             </ToolError>
+          )}
+          {row.injectionSignals.length > 0 && (
+            <p className="rounded-xl border-2 border-note bg-note/10 p-3 text-sm text-ink-2">
+              <b className="text-note">Heads up:</b> visible text reads like an instruction to AI assistants (“{row.injectionSignals[0]}”). If it&apos;s a
+              quoted example, put it in a code block or quotation; if it&apos;s meant to steer AI answers, remove it.
+            </p>
           )}
 
           <div className="grid gap-6 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,0.8fr)]">
@@ -103,6 +123,17 @@ export function GeoAeoTool({ action, placeholder }: { action: string; placeholde
                 {checks.map((check) => {
                   const full = check.earned === check.points;
                   const tone = full ? "bg-good" : check.earned ? "bg-warn" : "bg-crit";
+                  if (!check.applies) {
+                    return (
+                      <li key={check.label} className="flex items-center gap-3 rounded-xl border-2 border-dashed border-line px-3 py-2 text-ink-3">
+                        <span aria-hidden className="grid size-6 shrink-0 place-items-center rounded-full bg-sunk text-xs font-extrabold">
+                          –
+                        </span>
+                        <span className="flex-1 text-sm font-semibold">{check.label}</span>
+                        <span className="text-xs">doesn&apos;t apply to this page</span>
+                      </li>
+                    );
+                  }
                   return (
                     <li key={check.label} className="rounded-xl border-2 border-line bg-paper p-3">
                       <div className="flex items-center gap-3">

@@ -1,7 +1,25 @@
 import { describe, expect, it } from "vitest";
 import { buildRows } from "@/lib/seo/report";
 import { emptyPage, toCrawledPage, type CrawledPage } from "@/lib/seo/types";
+import { shareBudget } from "./crawl";
 import { checkedLinks, csvCell, unreadableReason, usedOn } from "./tools";
+
+describe("link check budget", () => {
+  const n = (count: number, prefix: string) => Array.from({ length: count }, (_, i) => `${prefix}${i}`);
+
+  it("hands unused shares to the lists that need them", () => {
+    // Few internal and external links, lots of images: the images get the leftover budget.
+    const picked = shareBudget([n(5, "i"), n(10, "e"), n(500, "img")], [0.35, 0.4, 0.25], 400);
+    expect(picked).toHaveLength(400);
+    expect(picked.filter((u) => u.startsWith("img"))).toHaveLength(385);
+  });
+
+  it("keeps the shares when every list is long", () => {
+    const picked = shareBudget([n(500, "i"), n(500, "e"), n(500, "img")], [0.35, 0.4, 0.25], 400);
+    expect(picked.filter((u) => u.startsWith("img"))).toHaveLength(100);
+    expect(picked).toHaveLength(400);
+  });
+});
 
 function page(url: string, overrides: Partial<CrawledPage> = {}): CrawledPage {
   return { ...toCrawledPage(emptyPage(url), []), status: 200, isHtml: true, wordCount: 500, ...overrides };

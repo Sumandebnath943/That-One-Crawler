@@ -1,8 +1,60 @@
+import { injectionSignals } from "./text";
+
 export type Severity = "critical" | "warning" | "notice";
 
 export interface RedirectHop {
   url: string;
   status: number;
+}
+
+export type PageSpeedCategoryId = "performance" | "accessibility" | "best-practices" | "seo";
+
+/** One Lighthouse audit that didn't pass, as PageSpeed Insights lists it. */
+export interface PageSpeedAudit {
+  id: string;
+  title: string;
+  /** Plain text: Lighthouse's Markdown links are reduced to their text. */
+  description: string;
+  learnMore?: string;
+  displayValue?: string;
+  /** 0–1, or null for informative diagnostics. */
+  score: number | null;
+  savingsMs?: number;
+  savingsBytes?: number;
+  /** A few of the offending files or elements. */
+  items?: string[];
+}
+
+export interface PageSpeedCategory {
+  id: PageSpeedCategoryId;
+  score: number | null;
+  failed: PageSpeedAudit[];
+  /** Informative findings that don't affect the score ("Avoid long main-thread tasks"). */
+  diagnostics: PageSpeedAudit[];
+  passed: number;
+  /** Things Lighthouse asks you to check by hand. */
+  manual: number;
+}
+
+export type FieldRating = "good" | "ok" | "poor";
+
+export interface FieldMetric {
+  p75: number | null;
+  rating: FieldRating | null;
+  /** Share of visits that were good, needs improvement and poor. */
+  distribution?: [number, number, number];
+}
+
+/** Real-user data (Chrome UX Report) as PageSpeed Insights reports it. */
+export interface FieldData {
+  scope: "url" | "origin";
+  /** Core Web Vitals assessment: LCP, INP and CLS all good at the 75th percentile. */
+  passed: boolean | null;
+  lcp: FieldMetric;
+  inp: FieldMetric;
+  cls: FieldMetric;
+  fcp: FieldMetric;
+  ttfb: FieldMetric;
 }
 
 export interface PageSpeedResult {
@@ -14,6 +66,18 @@ export interface PageSpeedResult {
   cls: number | null;
   tbtMs: number | null;
   error?: string;
+  // Everything below arrived with the full PageSpeed report; older scans only have the numbers above.
+  strategy?: "mobile" | "desktop";
+  fcpSeconds?: number | null;
+  speedIndexSeconds?: number | null;
+  categories?: PageSpeedCategory[];
+  field?: FieldData | null;
+  lighthouseVersion?: string;
+  fetchedAt?: string;
+  finalUrl?: string;
+  warnings?: string[];
+  /** Final screenshot as a data: URI (single-page test only, too big to keep for every scanned page). */
+  screenshot?: string;
 }
 
 export interface HeadingItem {
@@ -103,6 +167,8 @@ export interface PageData {
   contentType: string;
   isHtml: boolean;
   loadTimeMs: number;
+  /** Time to first byte: from the request (redirects included) until the response headers arrived. */
+  ttfbMs: number;
   sizeBytes: number;
   xRobotsTag: string;
   lang: string;
@@ -139,14 +205,29 @@ export interface PageData {
   externalLinks: number;
   /** External links worth checking for breakage. */
   outlinksExternal: string[];
+  /** Link texts like "click here" that say nothing about the destination (up to 5 examples). */
+  vagueLinks: string[];
+  vagueLinkCount: number;
   imageCount: number;
   imagesMissingAlt: number;
   imageStats: ImageStats;
-  /** Image URLs to check for weight. */
+  /** Image URLs to check (the srcset variant a desktop browser would download). */
   imageSrcs: string[];
+  /** http:// images, scripts, styles or frames on an https:// page. */
+  insecureResources: string[];
+  /** Distinct canonical URLs the page declares (more than one confuses search engines). */
+  canonicalCount: number;
+  /** content of <meta http-equiv="refresh">, if any. */
+  metaRefresh: string;
+  /** <link rel="alternate" type="text/markdown"> target, if the page advertises one. */
+  markdownAlternate: string;
+  /** Characters of readable text, for estimating how much of an AI agent's context the page uses. */
+  contentChars: number;
   likelyNeedsJs: boolean;
-  /** Text on the page that looks like instructions aimed at AI assistants. */
+  /** Visible text that reads as instructions to AI assistants (could be a quote or an example). */
   injectionSignals: string[];
+  /** Instructions to AI assistants in text visitors never see: hidden elements, comments, prompt links. */
+  hiddenInstructions: string[];
   brand: BrandFindings | null;
   /** Same-site links worth crawling next. */
   links: string[];
@@ -277,6 +358,8 @@ export interface LinkCheck {
   sizeBytes?: number;
   contentType?: string;
   error?: string;
+  /** What went wrong, in plain words, when the status alone doesn't say (a missing source image, say). */
+  note?: string;
 }
 
 export interface FeatureFlags {
@@ -338,6 +421,7 @@ export function emptyPage(url: string): PageData {
     contentType: "",
     isHtml: false,
     loadTimeMs: 0,
+    ttfbMs: 0,
     sizeBytes: 0,
     xRobotsTag: "",
     lang: "",
@@ -370,12 +454,20 @@ export function emptyPage(url: string): PageData {
     internalLinks: 0,
     externalLinks: 0,
     outlinksExternal: [],
+    vagueLinks: [],
+    vagueLinkCount: 0,
     imageCount: 0,
     imagesMissingAlt: 0,
     imageStats: { missingSize: 0, notLazy: 0, legacyFormat: 0 },
     imageSrcs: [],
+    insecureResources: [],
+    canonicalCount: 0,
+    metaRefresh: "",
+    markdownAlternate: "",
+    contentChars: 0,
     likelyNeedsJs: false,
     injectionSignals: [],
+    hiddenInstructions: [],
     brand: null,
     links: [],
   };
@@ -388,6 +480,11 @@ export function emptyPage(url: string): PageData {
 export function upgradePage(page: Partial<CrawledPage> & { url: string }): CrawledPage {
   const base = toCrawledPage(emptyPage(page.url), []);
   const merged = { ...base, ...page } as CrawledPage;
+  // Older scans used a looser injection check that flagged prose about prompts. Their snippets
+  // were saved, so run them past the current check and keep only real instructions.
+  if (!page.hiddenInstructions && page.injectionSignals?.length) {
+    merged.injectionSignals = page.injectionSignals.filter((snippet) => injectionSignals(snippet).length > 0);
+  }
   const legacyAi = page.ai as unknown as (AiMeta & { model?: string; provider?: string }) | undefined;
   if (legacyAi && "assessment" in legacyAi) {
     merged.ai = {

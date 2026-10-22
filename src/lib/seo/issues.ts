@@ -1,25 +1,36 @@
+import { isUtilityPage } from "./keywords";
+import { TITLE_MAX_PX, titleWidth } from "./pixels";
 import { isAllowedByRobots } from "./robots";
 import type { CrawledPage, KeywordCandidate, RobotsRules, Severity } from "./types";
 import { robotsPath, urlKey } from "./url";
 
 export const TITLE_MIN = 30;
 export const TITLE_MAX = 60;
+export { TITLE_MAX_PX };
 export const META_MIN = 120;
 export const META_MAX = 160;
 export const THIN_WORDS = 300;
 export const GOOD_WORDS = 900;
+/** web.dev calls a time to first byte over 1.8 seconds poor. */
+export const SLOW_TTFB_MS = 1800;
+/** Scans saved before we measured TTFB only have the full download time. */
 export const SLOW_MS = 3000;
 export const WORDS_PER_MINUTE = 238;
 export const STALE_MONTHS = 12;
 export const DEEP_CLICKS = 4;
 export const HEAVY_IMAGE_BYTES = 300_000;
 export const STUFFING_DENSITY = 3;
+/** Long enough to count as an article for the AI-readiness checks that only articles need. */
+export const ARTICLE_WORDS = 600;
 
 export type IssueCode =
   | "broken"
+  | "soft-404"
   | "offsite-redirect"
+  | "meta-refresh"
   | "noindex"
   | "robots-blocked"
+  | "multiple-canonicals"
   | "no-title"
   | "no-h1"
   | "title-short"
@@ -50,6 +61,7 @@ export type IssueCode =
   | "hard-to-read"
   | "ai-readiness"
   | "ai-injection"
+  | "ai-instructions"
   | "keyword-not-in-title"
   | "keyword-placement"
   | "keyword-stuffing"
@@ -58,8 +70,10 @@ export type IssueCode =
   | "orphan"
   | "deep-page"
   | "broken-links"
+  | "vague-link-text"
   | "heavy-images"
   | "image-dimensions"
+  | "mixed-content"
   | "banned-phrase"
   | "required-missing"
   | "brand-not-in-title";
@@ -73,6 +87,7 @@ export type IssueCategory =
   | "Structured data"
   | "AI search"
   | "Performance"
+  | "Security"
   | "Brand rules";
 
 export interface IssueInfo {
@@ -91,12 +106,33 @@ export const ISSUES: Record<IssueCode, IssueInfo> = {
     why: "Visitors and search engines hit a dead end here. Nothing ranks from a 404.",
     fix: "Restore the page, or 301-redirect it to the closest live page and update links pointing at it.",
   },
+  "soft-404": {
+    label: "Soft 404",
+    severity: "critical",
+    category: "Indexing",
+    why: "The page says it doesn't exist (\"Page not found\") but answers 200 OK. Search engines and AI agents are told it's a real page, so the error page can be indexed and the real problem stays hidden.",
+    fix: "Return a real 404 (or 410) status for missing pages, or 301-redirect the URL to the right page.",
+  },
   "offsite-redirect": {
     label: "Redirects off-site",
     severity: "warning",
     category: "Indexing",
     why: "This URL sends people to a different website, so any ranking it had walks out the door with them.",
     fix: "Make sure the redirect is intentional. If the content moved, point the URL at its new home on your own site.",
+  },
+  "meta-refresh": {
+    label: "Meta refresh redirect",
+    severity: "notice",
+    category: "Indexing",
+    why: "The page uses <meta http-equiv=\"refresh\"> to send visitors elsewhere. It's slower than a real redirect, some crawlers and AI agents don't follow it, and a delayed refresh confuses people.",
+    fix: "Replace it with a server-side 301 redirect, or remove it if the page should stay put.",
+  },
+  "multiple-canonicals": {
+    label: "Conflicting canonicals",
+    severity: "warning",
+    category: "Indexing",
+    why: "The page declares more than one canonical URL. When they disagree, Google ignores all of them and picks its own.",
+    fix: "Keep exactly one <link rel=\"canonical\">. Check that your theme and SEO plugin aren't both adding one.",
   },
   noindex: {
     label: "Noindex",
@@ -135,10 +171,10 @@ export const ISSUES: Record<IssueCode, IssueInfo> = {
   },
   "title-long": {
     label: "Title too long",
-    severity: "warning",
+    severity: "notice",
     category: "Search appearance",
-    why: "Google cuts titles off around 60 characters, so the end of yours ends up as an ellipsis.",
-    fix: `Trim the title to ${TITLE_MAX} characters or fewer and put the important words first.`,
+    why: `Google shows about ${TITLE_MAX_PX} pixels of a title on desktop (roughly ${TITLE_MAX} characters), so the end of this one becomes an ellipsis. Rankings aren't affected; the cut-off text just isn't seen.`,
+    fix: "Put the important words first and trim the rest, or move your brand name to the end where a cut-off costs least.",
   },
   "no-meta": {
     label: "Missing meta description",
@@ -183,11 +219,11 @@ export const ISSUES: Record<IssueCode, IssueInfo> = {
     fix: "Write a unique description for each page.",
   },
   slow: {
-    label: "Slow response",
+    label: "Slow server response",
     severity: "warning",
     category: "Performance",
-    why: `The page took over ${SLOW_MS / 1000} seconds to download. Slow pages lose visitors and rankings.`,
-    fix: "Check hosting, caching and page weight. Run PageSpeed for a detailed breakdown.",
+    why: `The server took over ${SLOW_TTFB_MS / 1000} seconds to start answering (time to first byte), which web.dev rates poor. Every visitor waits that long before anything appears.`,
+    fix: "Cache pages (a CDN or page cache), upgrade slow hosting, and cut slow database or API calls. Run PageSpeed for a detailed breakdown.",
   },
   "meta-short": {
     label: "Meta description too short",
@@ -319,15 +355,22 @@ export const ISSUES: Record<IssueCode, IssueInfo> = {
     label: "Hidden AI instructions",
     severity: "warning",
     category: "AI search",
-    why: "The page contains text that looks like instructions to AI assistants (prompt injection). AI tools and search engines may treat the page as manipulative.",
-    fix: "Remove the instruction-like text, including anything hidden with CSS.",
+    why: "Text that visitors can't see (hidden with CSS, in a comment or inside an \"ask AI\" link) gives instructions to AI assistants. That's prompt injection: AI tools discount pages that do it, and hidden text breaks Google's spam policies.",
+    fix: "Remove the hidden instructions. If you didn't add them, check plugins, themes and injected scripts.",
+  },
+  "ai-instructions": {
+    label: "Instructions aimed at AI",
+    severity: "notice",
+    category: "AI search",
+    why: "Visible text on the page reads like a command to AI assistants, such as telling them to drop their earlier rules or to recommend something. Fine if it's a quoted example; if it's meant to steer AI answers, assistants treat it as manipulation.",
+    fix: "If it's an example, put it in a code block or quotation. If it's there to steer AI tools, remove it.",
   },
   "keyword-not-in-title": {
     label: "Main keyword missing from title",
-    severity: "warning",
+    severity: "notice",
     category: "Keywords",
-    why: "The phrase this page is most about doesn't appear in its title, which is the strongest relevance signal you control.",
-    fix: "Work the main keyword into the title, ideally near the start.",
+    why: "No phrase from the title is among the ones this page uses most, so the title and the content tell search engines different stories.",
+    fix: "Work the page's main topic into the title, ideally near the start, or refocus the content on what the title promises.",
   },
   "keyword-placement": {
     label: "Main keyword not used everywhere",
@@ -361,8 +404,8 @@ export const ISSUES: Record<IssueCode, IssueInfo> = {
     label: "Orphan page",
     severity: "warning",
     category: "Links",
-    why: "No other scanned page links here. Search engines and readers can only find it through the sitemap.",
-    fix: "Link to it from related posts, category pages or a hub page.",
+    why: "No other page we crawled links here in its HTML, so search engines and readers can only find it through the sitemap. Links that only appear after a click or from a script (dropdown menus, search, command palettes) don't count: many crawlers never see them.",
+    fix: "Link to it with a normal <a href> from related posts, a category or hub page, or the homepage.",
   },
   "deep-page": {
     label: "Buried deep",
@@ -375,8 +418,15 @@ export const ISSUES: Record<IssueCode, IssueInfo> = {
     label: "Links to broken pages",
     severity: "warning",
     category: "Links",
-    why: "This page links to URLs that return 404 or don't exist. Dead links frustrate readers and waste crawl budget.",
-    fix: "Update each link to a working URL, or remove it.",
+    why: "This page links to URLs (or shows images) that return 404 or don't exist for a visitor who isn't signed in. Dead links frustrate readers and waste crawl budget.",
+    fix: "Update each link to a working URL, or remove it. A private GitHub repo shows everyone else a 404: make it public or drop the link.",
+  },
+  "vague-link-text": {
+    label: "Vague link text",
+    severity: "notice",
+    category: "Links",
+    why: "Links that say \"click here\" or \"read more\" tell search engines, screen readers and AI agents nothing about where they lead. Lighthouse's SEO audit flags them too.",
+    fix: "Describe the destination in the link itself: \"read the sourdough starter guide\", not \"read more\".",
   },
   "heavy-images": {
     label: "Heavy images",
@@ -389,8 +439,15 @@ export const ISSUES: Record<IssueCode, IssueInfo> = {
     label: "Images without dimensions",
     severity: "notice",
     category: "Performance",
-    why: "Images without width and height make the layout jump while loading (Cumulative Layout Shift).",
-    fix: "Add width and height attributes to every <img>.",
+    why: "Images without width and height make the layout jump while loading (Cumulative Layout Shift). Absolutely positioned images, like Next.js \"fill\" images, can't shift the layout and aren't counted.",
+    fix: "Add width and height attributes (or a CSS aspect-ratio) to every <img>.",
+  },
+  "mixed-content": {
+    label: "Mixed content",
+    severity: "warning",
+    category: "Security",
+    why: "This https:// page loads files over plain http://. Browsers block insecure scripts and frames outright and may show a \"Not secure\" warning for the rest.",
+    fix: "Change each http:// link to https:// (or a relative URL). If a file isn't available over https, host it yourself.",
   },
   "banned-phrase": {
     label: "Banned phrase used",
@@ -429,10 +486,12 @@ export interface BrokenOutlink {
   url: string;
   status: number;
   kind: LinkKind;
+  /** Plain-words explanation from the link check, when there is one. */
+  note?: string;
 }
 
 export interface PageRow extends CrawledPage {
-  /** 0–100, or null for pages with no content to score (broken, off-site redirects). */
+  /** 0–100 (broken pages score 0), or null for off-site redirects and non-HTML responses. */
   score: number | null;
   /** 0–100 GEO/AEO readiness, or null for pages without content. */
   aiScore: number | null;
@@ -477,22 +536,33 @@ export function readingMinutes(wordCount: number): number {
   return Math.round((wordCount / WORDS_PER_MINUTE) * 10) / 10;
 }
 
-/** Same 100-point formula Crawl Daddy used, so old and new scores are comparable. */
-export function scorePage(page: CrawledPage): number | null {
+/** What each finding costs a page's SEO score. Notices are polish, so together they cost at most 10. */
+export const SCORE_PENALTY: Record<Severity, number> = { critical: 30, warning: 10, notice: 2 };
+export const NOTICE_PENALTY_CAP = 10;
+/** Your own house rules and AI-search structure have their own places; they don't move the SEO score. */
+const UNSCORED_CATEGORIES: IssueCategory[] = ["Brand rules"];
+const UNSCORED_CODES: IssueCode[] = ["ai-readiness", "faq-no-schema", "ai-instructions"];
+
+export function countsTowardScore(code: IssueCode): boolean {
+  return !UNSCORED_CATEGORIES.includes(ISSUES[code].category) && !UNSCORED_CODES.includes(code);
+}
+
+/**
+ * The SEO score: start at 100 and take off points for every problem we found, by severity. So the
+ * number always tracks the issue list (a page with no issues scores 100), and broken pages score 0.
+ */
+export function scoreFromIssues(page: CrawledPage, issues: Issue[]): number | null {
+  if (page.status === 0 || page.status >= 400 || issues.some((i) => i.code === "soft-404")) return 0;
   if (!hasContent(page)) return null;
-  const titleLength = page.title.length;
-  const metaLength = page.metaDescription.length;
-  let score = 0;
-  if (page.h1Count > 0) score += 20;
-  if (titleLength >= TITLE_MIN && titleLength <= TITLE_MAX) score += 15;
-  if (metaLength >= META_MIN && metaLength <= META_MAX) score += 15;
-  if (page.wordCount >= GOOD_WORDS) score += 20;
-  else if (page.wordCount >= THIN_WORDS) score += 10;
-  if (page.canonicalUrl) score += 10;
-  if (page.ogTitle) score += 5;
-  if (page.imagesMissingAlt === 0) score += 5;
-  if (page.schemaTypes.length > 0) score += 10;
-  return score;
+  let penalty = 0;
+  let notices = 0;
+  for (const issue of issues) {
+    if (!countsTowardScore(issue.code)) continue;
+    const severity = ISSUES[issue.code].severity;
+    if (severity === "notice") notices += SCORE_PENALTY.notice;
+    else penalty += SCORE_PENALTY[severity];
+  }
+  return Math.max(0, 100 - penalty - Math.min(NOTICE_PENALTY_CAP, notices));
 }
 
 export interface AiReadinessCheck {
@@ -500,61 +570,87 @@ export interface AiReadinessCheck {
   points: number;
   earned: number;
   tip: string;
+  /** False when the check doesn't fit this kind of page (an FAQ on a contact page, say), so it's left out of the score. */
+  applies: boolean;
+}
+
+/** Posts and long-form pages, where question headings, an FAQ and a byline are expected. */
+export function isArticle(page: CrawledPage): boolean {
+  return Boolean(page.articleSchema || page.datePublished) || page.wordCount >= ARTICLE_WORDS;
 }
 
 /** The GEO/AEO checklist behind the AI-readiness score. Each item is something answer engines reward. */
 export function aiReadinessChecks(page: CrawledPage): AiReadinessCheck[] {
   const geo = page.geo;
+  const article = isArticle(page);
   const questionShare = geo.subheadings ? geo.questionHeadings / geo.subheadings : 0;
   return [
     {
       label: "Short answer up top",
       points: 20,
       earned: geo.introWords >= 20 && geo.introWords <= 80 ? 20 : geo.introWords > 0 ? 8 : 0,
-      tip: "Open with a 40–60 word paragraph that directly answers the page's main question.",
+      tip: "Open with a 40–60 word paragraph that directly answers the page's main question (or says what this page is).",
+      applies: true,
     },
     {
       label: "Answer paragraphs under headings",
       points: 20,
       earned: geo.answerCapsules >= 2 ? 20 : geo.answerCapsules === 1 ? 10 : 0,
       tip: "Follow each heading with a self-contained 30–80 word answer before going deeper.",
+      applies: geo.subheadings >= 2,
     },
     {
       label: "Question-style headings",
       points: 15,
       earned: questionShare >= 0.25 ? 15 : geo.questionHeadings > 0 ? 8 : 0,
       tip: "Phrase some H2s and H3s the way people ask: “How do I…?”, “What is…?”.",
+      applies: article && geo.subheadings >= 2,
     },
     {
       label: "FAQ section",
       points: 15,
       earned: geo.hasFaqSection || page.hasFaqSchema ? 15 : 0,
       tip: "Add a short FAQ with the questions readers actually ask (and FAQPage markup).",
+      applies: article,
     },
     {
       label: "Specific facts and numbers",
       points: 10,
       earned: geo.figures >= 3 ? 10 : geo.figures > 0 ? 5 : 0,
       tip: "Replace vague claims with specific figures, dates and named sources.",
+      applies: page.wordCount >= THIN_WORDS,
     },
     {
       label: "Lists or tables",
       points: 10,
       earned: geo.lists + geo.tables > 0 ? 10 : 0,
       tip: "Use bullet lists for steps and options, tables for comparisons.",
+      applies: page.wordCount >= THIN_WORDS,
     },
     {
       label: "Clear author and date",
       points: 10,
       earned: (page.author ? 5 : 0) + (page.datePublished || page.dateModified ? 5 : 0),
       tip: "Show who wrote it and when it was last updated, on the page and in the markup.",
+      applies: article,
     },
   ];
 }
 
+/** Share of the applicable checklist points the page earns, out of 100. */
 export function aiReadinessScore(page: CrawledPage): number | null {
   if (!hasContent(page)) return null;
-  return aiReadinessChecks(page).reduce((sum, check) => sum + check.earned, 0);
+  const checks = aiReadinessChecks(page).filter((c) => c.applies);
+  const possible = checks.reduce((sum, c) => sum + c.points, 0);
+  if (!possible) return null;
+  return Math.round((checks.reduce((sum, c) => sum + c.earned, 0) / possible) * 100);
+}
+
+/** "Page not found" pages that answer 200 OK. */
+export function looksLikeSoft404(page: CrawledPage): boolean {
+  if (page.status !== 200 || page.wordCount >= 400) return false;
+  const pattern = /^(?:\W*404\b|error 404|page not found|not found\b|oops\b|this page (?:doesn[’']t|does not|could not|can[’']t)|the page you (?:requested|were looking for))/i;
+  return pattern.test(page.title.trim()) || pattern.test((page.h1[0] ?? "").trim());
 }
 
 export function canonicalMatches(page: CrawledPage): boolean | null {
@@ -576,14 +672,21 @@ export function findIssues(row: RowFacts, ctx: Partial<RowContext> = {}): Issue[
     issues.push({ code: "offsite-redirect", detail: `→ ${row.offsiteRedirect}` });
     return issues;
   }
+  if (looksLikeSoft404(row)) {
+    issues.push({ code: "soft-404", detail: `("${(row.title || row.h1[0] || "").slice(0, 40)}")` });
+    return issues;
+  }
 
   if (ctx.robots && !isAllowedByRobots(ctx.robots, robotsPath(row.finalUrl))) issues.push({ code: "robots-blocked" });
   if (isNoindex(row)) issues.push({ code: "noindex" });
+  if (row.metaRefresh) issues.push({ code: "meta-refresh", detail: `(${row.metaRefresh.slice(0, 60)})` });
+  if (row.canonicalCount > 1) issues.push({ code: "multiple-canonicals", detail: `(${row.canonicalCount})` });
 
   const titleLength = row.title.length;
+  const titlePx = titleWidth(row.title);
   if (!titleLength) issues.push({ code: "no-title" });
   else if (titleLength < TITLE_MIN) issues.push({ code: "title-short", detail: `(${titleLength} chars)` });
-  else if (titleLength > TITLE_MAX) issues.push({ code: "title-long", detail: `(${titleLength} chars)` });
+  else if (titlePx > TITLE_MAX_PX) issues.push({ code: "title-long", detail: `(${titleLength} chars, ~${titlePx}px)` });
 
   if (row.h1Count === 0) issues.push({ code: "no-h1" });
   else if (row.h1Count > 1) issues.push({ code: "multiple-h1", detail: `(${row.h1Count})` });
@@ -612,6 +715,7 @@ export function findIssues(row: RowFacts, ctx: Partial<RowContext> = {}): Issue[
   if (row.imagesMissingAlt > 0) issues.push({ code: "missing-alt", detail: `(${row.imagesMissingAlt})` });
   if (row.imageStats.missingSize > 0) issues.push({ code: "image-dimensions", detail: `(${row.imageStats.missingSize})` });
   if (row.heavyImages.length) issues.push({ code: "heavy-images", detail: `(${row.heavyImages.length})` });
+  if (row.insecureResources.length) issues.push({ code: "mixed-content", detail: `(${row.insecureResources.length})` });
   if (!row.ogTitle) issues.push({ code: "no-og" });
 
   if (!row.schemaTypes.length && !row.schemaErrors) issues.push({ code: "no-schema" });
@@ -637,16 +741,19 @@ export function findIssues(row: RowFacts, ctx: Partial<RowContext> = {}): Issue[
 
   const aiScore = aiReadinessScore(row);
   if (aiScore !== null && aiScore < 50 && row.wordCount >= THIN_WORDS) issues.push({ code: "ai-readiness", detail: `(${aiScore}/100)` });
-  if (row.injectionSignals.length) issues.push({ code: "ai-injection" });
+  if (row.hiddenInstructions.length) issues.push({ code: "ai-injection", detail: `("${row.hiddenInstructions[0].slice(0, 60)}")` });
+  if (row.injectionSignals.length) issues.push({ code: "ai-instructions", detail: `("${row.injectionSignals[0].slice(0, 60)}")` });
 
-  const keyword = row.primaryKeyword;
+  // Contact, legal and similar pages aren't written to rank for a topic, so keyword advice doesn't apply.
+  const keyword = isUtilityPage(row.finalUrl) ? null : row.primaryKeyword;
   if (keyword) {
     if (!keyword.title) issues.push({ code: "keyword-not-in-title", detail: `("${keyword.phrase}")` });
     const missing: string[] = [];
     if (row.h1Count > 0 && !keyword.h1) missing.push("H1");
     if (row.metaDescription && !keyword.meta) missing.push("description");
     if (!keyword.intro) missing.push("intro");
-    if (missing.length) issues.push({ code: "keyword-placement", detail: `(not in ${missing.join(", ")})` });
+    // The keyword is our reading of the page, not one you chose, so one missing spot isn't worth a flag.
+    if (missing.length >= 2) issues.push({ code: "keyword-placement", detail: `(not in ${missing.join(", ")})` });
     if (row.keywordDensity !== null && row.keywordDensity > STUFFING_DENSITY && keyword.count >= 8) {
       issues.push({ code: "keyword-stuffing", detail: `(${row.keywordDensity}%)` });
     }
@@ -660,6 +767,9 @@ export function findIssues(row: RowFacts, ctx: Partial<RowContext> = {}): Issue[
   if (ctx.complete && row.inbound === 0 && !isStart) issues.push({ code: "orphan" });
   if (row.depth !== null && row.depth > DEEP_CLICKS) issues.push({ code: "deep-page", detail: `(${row.depth} clicks)` });
   if (row.brokenOutlinks.length) issues.push({ code: "broken-links", detail: `(${row.brokenOutlinks.length})` });
+  if (row.vagueLinkCount > 0) {
+    issues.push({ code: "vague-link-text", detail: `(${row.vagueLinkCount}: "${row.vagueLinks.slice(0, 2).join('", "')}")` });
+  }
 
   if (row.brand?.bannedFound.length) issues.push({ code: "banned-phrase", detail: `("${row.brand.bannedFound.join('", "')}")` });
   if (row.brand?.requiredMissing.length) {
@@ -669,7 +779,9 @@ export function findIssues(row: RowFacts, ctx: Partial<RowContext> = {}): Issue[
     issues.push({ code: "brand-not-in-title" });
   }
 
-  if (row.loadTimeMs > SLOW_MS) issues.push({ code: "slow", detail: `(${(row.loadTimeMs / 1000).toFixed(1)}s)` });
+  if (row.ttfbMs ? row.ttfbMs > SLOW_TTFB_MS : row.loadTimeMs > SLOW_MS) {
+    issues.push({ code: "slow", detail: `(${((row.ttfbMs || row.loadTimeMs) / 1000).toFixed(1)}s${row.ttfbMs ? " to first byte" : ""})` });
+  }
   if (row.likelyNeedsJs) issues.push({ code: "needs-js" });
   if (row.redirectedFrom.length) issues.push({ code: "redirected", detail: `(${row.redirectedFrom.length})` });
 

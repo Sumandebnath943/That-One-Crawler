@@ -8,14 +8,14 @@ _Last updated: 22 October 2026._
 
 | | |
 | --- | --- |
-| What it is | A free SEO, GEO and AEO audit tool for blogs, plus four focused SEO tools and 30 "checks explained" guides |
+| What it is | A free SEO, GEO, AEO and AI-agent-readiness audit tool for blogs, plus six focused tools (including a PageSpeed test and an AI agent readiness checker) and 32 "checks explained" guides |
 | Live site | https://that-one-crawler.vercel.app |
 | Repository | https://github.com/Sumandebnath943/That-One-Crawler (public), branch `main` |
 | Hosting | Vercel Hobby (free). Every push to `main` deploys automatically |
 | Owner | Suman Debnath (https://sumandebnath.houseofnamus.com) |
 | Stack | Next.js 16.4 (App Router, Turbopack), React 19.3, TypeScript, Tailwind CSS 4, cheerio, Vitest |
 | Data | No database. Scans, brand rules and a visitor's own AI key live in that visitor's browser |
-| Status | Live and working. The site audits itself at SEO 91, AI readiness 93, with no critical, warning or notice issues |
+| Status | Live and working. The site audits itself at SEO 100, AI search 95, with no critical, warning or notice issues; its own AI agent readiness is 94 |
 
 ## Current state of services
 
@@ -54,7 +54,7 @@ npm run start
 | --- | --- |
 | `npm run dev` | Dev server on port 3000 (see the Windows note below) |
 | `npm run build` / `npm run start` | Production build and server |
-| `npm test` | Vitest: 8 files, 143 tests |
+| `npm test` | Vitest: 10 files, 184 tests |
 | `npm run lint` / `npm run typecheck` | ESLint / `tsc --noEmit` |
 
 ### Windows machine notes (the current dev PC)
@@ -77,11 +77,13 @@ npm run start
 ## How to check a change
 
 1. `npm run typecheck`, `npm test`, `npm run lint` all pass.
-2. `npm run build` succeeds (57 static pages).
-3. **Self-audit:** build with `NEXT_PUBLIC_SITE_URL=http://localhost:3007`, start the `prod-self` config, then open `http://localhost:3007/scan?url=http%3A%2F%2Flocalhost%3A3007&max=100`. Expect 38 sitemap URLs, SEO about 91, AI readiness about 93, and 0 critical, 0 warnings, 0 notices. Any new notice on our own pages is a bug in the copy or the checker.
+2. `npm run build` succeeds (62 static pages).
+3. **Self-audit:** build with `NEXT_PUBLIC_SITE_URL=http://localhost:3007`, start the `prod-self` config, then open `http://localhost:3007/scan?url=http%3A%2F%2Flocalhost%3A3007&max=100`. Expect 42 sitemap URLs, SEO 100, AI search about 95, AI agents about 94, and 0 critical, 0 warnings, 0 notices. Any new notice on our own pages is a bug in the copy or the checker. The agent check can also be run on its own at `/ai-agent-readiness-checker?url=http%3A%2F%2Flocalhost%3A3007`.
 4. **Production smoke test** after deploying:
    - `/api/config` returns `{"pagespeed":true,"crux":true,"ai":true,"aiDailyLimit":20}`.
-   - `/robots.txt`, `/sitemap.xml` (38 URLs), `/llms.txt` and `/llms-full.txt` return 200. `/checks/not-a-real-check` returns 404.
+   - `/robots.txt`, `/sitemap.xml` (42 URLs), `/llms.txt` and `/llms-full.txt` return 200. `/checks/not-a-real-check` returns 404.
+   - `/ai-agent-readiness-checker?url=sumandebnath.houseofnamus.com` scores about 100 (is-agentic.com says 100 too) and lists llms.txt (over 30K characters) and `.md` twins as the only gaps.
+   - `/page-speed-test?url=…` shows mobile and desktop results with failed audits.
    - One AI action shows which provider answered. A long job (section rewrite) should say Gemini, and a short one (title & meta) should say Groq.
    - `POST /api/crux` with `{"url":"https://wordpress.org/news/"}` returns real-user metrics.
    - Rate limits still work, without spending any quota: send 32 quick `POST /api/pagespeed` requests with `{"url":"not-a-url"}`. The first 30 should return 400 (invalid URL) and the rest 429. The limiter counts requests before checking the URL, so Google is never called. The limit clears after a minute.
@@ -103,7 +105,10 @@ npm run start
 - **No headless browser.** Pages that only render with JavaScript are flagged ("needs JavaScript") rather than rendered.
 - **No search volumes.** Keywords come from the pages themselves; we never invent volumes.
 - **Single-page tools don't read robots.txt.** The meta tag and GEO checkers analyze one URL directly; the full audit does read robots.txt.
-- **Guides score 90, not 100,** because the SEO score gives full content marks only at 900+ words. The formula is kept identical to Crawl Daddy's on purpose so old and new scores compare.
+- **The SEO score changed on 22 October 2026** from Crawl Daddy's checklist to "100 minus weighted issues". Saved scans are re-scored on load, but summaries in the recent-scans list keep the number they were saved with until that scan is opened and saved again.
+- **Agent probes borrow agents' names.** The firewall check loads the homepage as ChatGPT-User, OAI-SearchBot, Claude-User and PerplexityBot (with our name appended). Firewalls that verify real bots by IP may block us while letting the real bot through; the result says so. Timeouts are left out, not counted as blocks.
+- **Not checked: brand discoverability** (whether the site ranks for its own name). is-agentic.com checks it with a search engine; we have no search API.
+- **Our own agent gaps:** no Markdown for agents (`Accept: text/markdown`, `.md` twins), no About/Contact/Privacy links, no sameAs links in the Person markup. A Privacy page needs the owner's decision.
 - **Not built, by choice:** scheduled rescans with email, and shareable report links. Both need a server-side database, and the owner chose browser-only data. The replacements are a "Time for a rescan?" reminder after 7 days and a downloadable HTML report.
 - **Model churn:** free-tier model names change. Keep the defaults in `src/lib/server/ai/router.ts` current.
 

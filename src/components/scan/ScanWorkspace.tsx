@@ -9,6 +9,9 @@ import { burstConfetti, toast } from "@/lib/client/quirks";
 import { downloadHtmlReport } from "@/lib/client/report-html";
 import { useFeatures } from "@/lib/client/use-features";
 import { DEFAULT_PAGE_LIMIT, MAX_PAGES_LIMIT } from "@/lib/limits";
+import { agentGaps, agentScore, withCrawlEvidence } from "@/lib/seo/agents";
+import { hasContent } from "@/lib/seo/issues";
+import { agentPromptItems, issuePromptItems, speedPromptItems } from "@/lib/seo/prompt";
 import { brokenLinkReport, buildRows, cannibalizationReport, summarize } from "@/lib/seo/report";
 import type { CrawledPage } from "@/lib/seo/types";
 import { prettyUrl, urlKey } from "@/lib/seo/url";
@@ -17,7 +20,7 @@ import { RecentScans } from "../RecentScans";
 import { buildScanHref, ScanForm } from "../ScanForm";
 import { BrandRulesDialog } from "./BrandRulesDialog";
 import { PageDrawer } from "./PageDrawer";
-import { ChangesPanel, KeywordsPanel, LinksPanel, PlanPanel } from "./Panels";
+import { AgentsTabPanel, ChangesPanel, KeywordsPanel, LinksPanel, PlanPanel, SpeedPanel } from "./Panels";
 import { ProgressPanel } from "./ProgressPanel";
 import { PagesTable, Report, Verdict } from "./Report";
 
@@ -160,14 +163,47 @@ export function ScanWorkspace() {
 
   const rows = useMemo(() => (scan ? buildRows(scan.pages, contextFor(scan)) : []), [scan]);
   const summary = useMemo(() => summarize(rows), [rows]);
+  // The agent check looks at a few pages; once the crawl has read them all, its injection check uses every one.
+  const scanAgents = scan?.agents;
+  const scanPhase = scan?.phase;
+  const agents = useMemo(() => {
+    if (!scanAgents) return null;
+    return scanPhase && isRunning(scanPhase) ? scanAgents : withCrawlEvidence(scanAgents, rows.filter(hasContent));
+  }, [scanAgents, scanPhase, rows]);
+  const speedRows = useMemo(() => rows.filter((r) => r.pagespeed && !r.pagespeed.error), [rows]);
   const tabCounts = useMemo(
     () => ({
       pages: { value: rows.length },
       links: { value: brokenLinkReport(rows).length, tone: "crit" as const },
       keywords: { value: cannibalizationReport(rows).length, tone: "warn" as const },
+      ...(agents ? { agents: { value: agentGaps(agents).length, tone: "warn" as const } } : {}),
+      ...(speedRows.length ? { speed: { value: speedRows.length } } : {}),
     }),
-    [rows],
+    [rows, agents, speedRows],
   );
+  const agentValue = agents ? agentScore(agents).score : null;
+  const speedValue = speedRows.length
+    ? Math.round(speedRows.reduce((sum, r) => sum + (r.pagespeed!.performance ?? 0), 0) / speedRows.length)
+    : undefined;
+  const prompt = useMemo(() => {
+    if (!scan) return undefined;
+    const items = [
+      ...issuePromptItems(rows),
+      ...(agents ? agentPromptItems(agents) : []),
+      ...speedPromptItems(speedRows.map((r) => ({ url: r.finalUrl, result: r.pagespeed! }))),
+    ];
+    const scores = [
+      `SEO ${summary.avgScore ?? "—"}/100`,
+      `AI search ${summary.avgAiScore ?? "—"}/100`,
+      ...(agents ? [`AI agents ${agentScore(agents).score}/100`] : []),
+      ...(speedRows.length ? [`PageSpeed performance ${speedValue}/100 (mobile, average of ${speedRows.length} pages)`] : []),
+    ];
+    const site = scan.startUrl || scan.settings.url;
+    return {
+      items,
+      context: { site, scores, scope: `a scan of ${summary.total} pages on ${new Date(scan.startedAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}` },
+    };
+  }, [scan, rows, agents, speedRows, summary, speedValue]);
   const openRow = openKey ? rows.find((r) => urlKey(r.finalUrl) === openKey) : undefined;
   const closeDrawer = useCallback(() => setOpenKey(null), []);
   const closeRules = useCallback(() => setRulesOpen(false), []);
@@ -290,13 +326,19 @@ export function ScanWorkspace() {
             running={running}
             method={scan.method}
             durationMs={scan.finishedAt ? scan.finishedAt - scan.startedAt : null}
+            agentScore={scan.settings.agents === false && !agents ? undefined : agentValue}
+            speedScore={speedValue}
+            prompt={prompt}
           />
           <Report
             summary={summary}
             counts={tabCounts}
+            hidden={speedRows.length || scan.settings.pagespeed ? [] : ["speed"]}
             renderTab={(tab, issueFilter, setIssueFilter) => {
               if (tab === "links") return <LinksPanel rows={rows} scan={scan} onOpen={setOpenKey} />;
               if (tab === "keywords") return <KeywordsPanel rows={rows} onOpen={setOpenKey} />;
+              if (tab === "agents") return <AgentsTabPanel scan={scan} report={agents} onReport={(report) => commit({ ...scan, agents: report, agentsError: undefined })} />;
+              if (tab === "speed") return <SpeedPanel rows={rows} onOpen={setOpenKey} />;
               if (tab === "changes") return <ChangesPanel scan={scan} rows={rows} onOpen={setOpenKey} />;
               if (tab === "plan") return <PlanPanel scan={scan} rows={rows} summary={summary} onPlan={(plan) => commit({ ...scan, plan })} />;
               return (

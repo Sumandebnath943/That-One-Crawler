@@ -49,9 +49,9 @@ const JUDGED = [
   },
   {
     tag: "✦ GEO",
-    title: "AI search readiness",
-    body: "Will ChatGPT, Perplexity and Google AI Overviews quote you? We score every page for direct answers, facts and FAQs.",
-    href: "/geo-aeo-checker",
+    title: "AI search & AI agents",
+    body: "Will ChatGPT, Perplexity and Google AI Overviews quote you, and can their agents even get in? Answers, facts, llms.txt, Markdown and bot walls.",
+    href: "/ai-agent-readiness-checker",
   },
   {
     tag: "noindex",
@@ -68,8 +68,8 @@ const JUDGED = [
   {
     tag: "2019",
     title: "Freshness & speed",
-    body: "Posts nobody's touched in a year, images heavier than your excuses, and real-user speed data from Chrome.",
-    href: "/checks/content-freshness",
+    body: "Posts nobody's touched in a year, images heavier than your excuses, and Google's PageSpeed and Core Web Vitals.",
+    href: "/page-speed-test",
   },
 ];
 
@@ -224,8 +224,8 @@ export function Judged() {
       <div className="mb-10 max-w-2xl">
         <h2 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Things we will absolutely judge</h2>
         <p className="mt-3 text-lg text-ink-2">
-          Over 45 checks on every page, each ranked from &quot;fix this today&quot; to &quot;whenever you get a
-          sec&quot;, with a guide explaining how to fix it.{" "}
+          Over 50 checks on every page, plus 24 on whether AI agents can use your site, each ranked from &quot;fix this
+          today&quot; to &quot;whenever you get a sec&quot;, with a guide explaining how to fix it.{" "}
           <Link href="/checks" className="font-semibold text-ink underline underline-offset-2">
             See every check explained
           </Link>
@@ -256,12 +256,13 @@ export function FreeTools() {
   return (
     <section id="tools" className="scroll-mt-20 border-y-2 border-ink bg-card">
       <div className="shell py-16 sm:py-20">
-        <h2 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Four free tools, one job each</h2>
+        <h2 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl">Six free tools, one job each</h2>
         <p className="mt-3 max-w-2xl text-lg text-ink-2">
-          Need one answer fast? Each tool does a single job well. Two check one page in seconds; two crawl your whole
-          site for one kind of problem. Want everything at once? Run the full audit up top.
+          Need one answer fast? Each tool does a single job well. Some check one page in seconds, one checks whether AI
+          agents can get into your whole site, and two crawl it for one kind of problem. Want everything at once? Run
+          the full audit up top.
         </p>
-        <ul className="mt-10 grid gap-4 sm:grid-cols-2">
+        <ul className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {TOOLS.map((tool) => (
             <li key={tool.slug}>
               <Link

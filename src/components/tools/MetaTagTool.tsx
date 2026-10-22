@@ -2,12 +2,15 @@
 
 import { useRef, useState } from "react";
 import { analyzePage, unreadableReason } from "@/lib/client/tools";
-import { canonicalMatches, ISSUES, isNoindex, META_MAX, META_MIN, TITLE_MAX, TITLE_MIN, type PageRow } from "@/lib/seo/issues";
+import { canonicalMatches, ISSUES, isNoindex, META_MAX, META_MIN, TITLE_MAX, TITLE_MAX_PX, TITLE_MIN, type PageRow } from "@/lib/seo/issues";
+import { titleWidth } from "@/lib/seo/pixels";
+import { issuePromptItems } from "@/lib/seo/prompt";
 import type { AiMeta, AiResult } from "@/lib/seo/types";
 import { aiRequestBase, AiRunnerError, MetaAiCard, useAiRunner } from "../scan/ai-cards";
 import { AiQuotaBar } from "../scan/ai-ui";
 import { IssueChip, ScoreBadge } from "../scan/bits";
 import { SerpPreview, SocialPreview } from "../scan/Previews";
+import { PromptButton } from "../scan/PromptDialog";
 import { CheckedPage, FullAuditLinks, ResultBlock, ToolError, ToolForm } from "./kit";
 
 type TagStatus = "good" | "warn" | "bad" | "info";
@@ -34,11 +37,21 @@ function lengthLine(name: string, value: string, min: number, max: number): TagL
   return { name, value, status: "good", note: `${n} chars` };
 }
 
+/** Titles are judged by width, the way Google cuts them off. */
+function titleLine(title: string): TagLine {
+  if (!title) return { name: "Title tag", value: title, status: "bad", note: "Missing" };
+  const n = title.length;
+  const px = titleWidth(title);
+  if (n < TITLE_MIN) return { name: "Title tag", value: title, status: "warn", note: `${n} chars, a bit short (aim for ${TITLE_MIN}–${TITLE_MAX})` };
+  if (px > TITLE_MAX_PX) return { name: "Title tag", value: title, status: "warn", note: `${n} chars, ~${px}px: Google cuts it off at about ${TITLE_MAX_PX}px` };
+  return { name: "Title tag", value: title, status: "good", note: `${n} chars, ~${px}px of ${TITLE_MAX_PX}px` };
+}
+
 function tagLines(row: PageRow): TagLine[] {
   const canonical = canonicalMatches(row);
   const robots = [row.robotsMeta, row.xRobotsTag && `X-Robots-Tag: ${row.xRobotsTag}`].filter(Boolean).join(" · ");
   return [
-    lengthLine("Title tag", row.title, TITLE_MIN, TITLE_MAX),
+    titleLine(row.title),
     lengthLine("Meta description", row.metaDescription, META_MIN, META_MAX),
     {
       name: "H1",
@@ -49,8 +62,15 @@ function tagLines(row: PageRow): TagLine[] {
     {
       name: "Canonical",
       value: row.canonicalUrl,
-      status: canonical === null ? "warn" : canonical ? "good" : "warn",
-      note: canonical === null ? "Missing" : canonical ? "Points to this page" : "Points to a different URL",
+      status: row.canonicalCount > 1 ? "bad" : canonical === null ? "warn" : canonical ? "good" : "warn",
+      note:
+        row.canonicalCount > 1
+          ? `${row.canonicalCount} different canonicals: Google ignores them all`
+          : canonical === null
+            ? "Missing"
+            : canonical
+              ? "Points to this page"
+              : "Points to a different URL",
     },
     {
       name: "Robots",
@@ -150,7 +170,18 @@ export function MetaTagTool({ action, placeholder }: { action: string; placehold
       {error && <ToolError>{error}</ToolError>}
       {row && (
         <div className="rise space-y-6">
-          <CheckedPage row={row} aside={<ScoreBadge score={row.score} />} />
+          <CheckedPage
+            row={row}
+            aside={
+              <>
+                <ScoreBadge score={row.score} />
+                <PromptButton
+                  items={issuePromptItems([row])}
+                  context={{ site: row.finalUrl, scores: [`SEO ${row.score ?? "—"}/100`], scope: "a single-page meta tag check" }}
+                />
+              </>
+            }
+          />
           {tagIssues.length > 0 && (
             <div className="flex flex-wrap gap-2">
               {tagIssues.map((issue) => (

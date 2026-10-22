@@ -49,6 +49,12 @@ describe("guides", () => {
       const text = [g.title, g.answer, g.why, ...g.steps, ...g.faqs.flatMap((f) => [f.q, f.a])].join(" ");
       expect(injectionSignals(text), g.slug).toEqual([]);
     }
+    // The check descriptions and tool pages are on our pages too.
+    for (const [code, info] of Object.entries(ISSUES)) expect(injectionSignals(`${info.why} ${info.fix}`), code).toEqual([]);
+    for (const t of TOOLS) {
+      const text = [t.answer, ...t.features.flatMap((f) => [f.title, f.body]), ...t.steps, ...t.faqs.flatMap((f) => [f.q, f.a])].join(" ");
+      expect(injectionSignals(text), t.slug).toEqual([]);
+    }
   });
 
   it("have unique slugs", () => {

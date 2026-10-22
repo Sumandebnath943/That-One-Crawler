@@ -4,11 +4,12 @@ import type { Faq } from "./guides";
 // seconds; site tools run a crawl tuned for one job. Each opens with a direct answer and links to
 // the matching "checks explained" guides.
 
-export type ToolMode = "page" | "site";
+export type ToolMode = "page" | "site" | "probe";
 
 export const MODE_LABEL: Record<ToolMode, string> = {
   page: "One page · seconds",
   site: "Whole site · crawl",
+  probe: "Whole site · seconds",
 };
 
 export interface ToolPage {
@@ -248,6 +249,114 @@ export const TOOLS: ToolPage[] = [
       },
     ],
     guides: ["title-tag-length", "meta-description-length", "duplicate-title-tags", "open-graph-tags"],
+  },
+  {
+    slug: "ai-agent-readiness-checker",
+    keyword: "ai agent readiness checker",
+    metaTitle: "Free AI Agent Readiness Checker for Any Website",
+    metaDescription:
+      "Check whether ChatGPT, Claude and Perplexity can reach and read your site: robots.txt, bot walls, Markdown, llms.txt, real 404s and identity, with fixes.",
+    eyebrow: "Free AI agent readiness checker",
+    h1: "Free AI agent readiness checker for your website",
+    answer:
+      "That One Crawler's AI agent readiness checker tests whether assistants like ChatGPT, Claude and Perplexity can reach your site, read it without a browser and find their way around. It checks robots.txt, firewalls, Markdown versions, llms.txt, real 404s, structured identity and trust pages, then scores the site out of 100 with the evidence for every result.",
+    mode: "probe",
+    summary: "Tests whether AI agents can get into your site and read it: robots.txt, bot walls, Markdown, llms.txt and more.",
+    action: "Check agent access",
+    placeholder: "myblog.com",
+    features: [
+      {
+        title: "Knocks like the real agents",
+        body: "We read your robots.txt rules for six AI agents and load your homepage as ChatGPT-User, OAI-SearchBot, Claude-User and PerplexityBot to catch firewall walls.",
+      },
+      {
+        title: "Evidence for every check",
+        body: "Each result says exactly what we saw: the status code, the header, the file size, the page we sampled. No black-box score.",
+      },
+      {
+        title: "Essentials first",
+        body: "Access problems that lock agents out count most. Emerging conventions like llms-full.txt or Link headers are bonus points that never cost you.",
+      },
+      {
+        title: "A prompt to fix it",
+        body: "Copy one prompt with every failed check, its evidence and the fix, and paste it into your AI coding agent.",
+      },
+    ],
+    steps: [
+      "Paste your site's address.",
+      "We check robots.txt, firewalls, Markdown, llms.txt, 404s, structured data and sample pages in about 15 seconds.",
+      "Read the essentials first: anything failed there locks agents out.",
+      "Copy the improvement prompt into your coding agent, then check again.",
+    ],
+    faqs: [
+      {
+        q: "What is AI agent readiness?",
+        a: "It's how easily AI assistants that browse for people, and AI search crawlers, can reach your site, read it without running JavaScript and understand who runs it. A site can rank well in Google and still turn agents away with a firewall or a JavaScript-only page.",
+      },
+      {
+        q: "How is this different from the GEO checker?",
+        a: "The GEO and AEO checker scores one page's content: direct answers, facts and FAQs that answer engines quote. This checker tests the whole site's access: whether agents get in at all. You need both.",
+      },
+      {
+        q: "Does blocking GPTBot or CCBot lower my score?",
+        a: "No. Blocking training crawlers is your choice, and we only report it. The score counts agents that fetch pages for a person or for AI search, such as ChatGPT-User, OAI-SearchBot, Claude-User and PerplexityBot.",
+      },
+    ],
+    guides: ["ai-search-readiness", "blocked-by-robots-txt", "javascript-rendering", "hidden-ai-instructions"],
+  },
+  {
+    slug: "page-speed-test",
+    keyword: "page speed test",
+    metaTitle: "Free Page Speed Test: Core Web Vitals and Lighthouse",
+    metaDescription:
+      "A free page speed test powered by Google PageSpeed Insights: real-user Core Web Vitals, Lighthouse scores and every fix, on mobile and desktop.",
+    eyebrow: "Free page speed test",
+    h1: "Free page speed test with Core Web Vitals",
+    answer:
+      "That One Crawler's page speed test runs Google PageSpeed Insights on any page, on mobile and desktop. It shows real-user Core Web Vitals from the Chrome UX Report, the four Lighthouse scores for performance, accessibility, best practices and SEO, and every audit that failed, with the files to fix and the time each fix could save.",
+    mode: "page",
+    summary: "Runs Google PageSpeed Insights on one page, mobile and desktop: Core Web Vitals, Lighthouse scores and every fix.",
+    action: "Test page speed",
+    placeholder: "myblog.com/my-best-post",
+    features: [
+      {
+        title: "Google's own engine",
+        body: "Results come straight from the PageSpeed Insights API and Lighthouse, so the scores match what Google's tool reports.",
+      },
+      {
+        title: "Real users first",
+        body: "Core Web Vitals from real Chrome visitors (LCP, INP and CLS) with the pass or fail assessment Google uses, when it has the data.",
+      },
+      {
+        title: "Every failed audit",
+        body: "Each audit that didn't pass, with the files or elements behind it and how much time fixing it could save.",
+      },
+      {
+        title: "Mobile and desktop",
+        body: "Both tests run at once, and you can copy every fix as one prompt for your AI coding agent.",
+      },
+    ],
+    steps: [
+      "Paste the address of any page.",
+      "Wait 20–40 seconds while Google runs Lighthouse on mobile and desktop.",
+      "Check the real-user Core Web Vitals first, then the lab scores and failed audits.",
+      "Copy the improvement prompt, fix the biggest savings first, and test again.",
+    ],
+    faqs: [
+      {
+        q: "Is this the same as Google PageSpeed Insights?",
+        a: "It uses the same PageSpeed Insights API and the same Lighthouse version, so the scores match. We lay out the results for fixing: every failed audit in one list, with a prompt you can hand to a coding agent.",
+      },
+      {
+        q: "Why does my score change between runs?",
+        a: "Lab tests run on real servers and networks, so performance scores often move a few points from run to run. Real-user data from the Chrome UX Report is steadier, and it's what Google uses for rankings.",
+      },
+      {
+        q: "What's a good PageSpeed score?",
+        a: "90 or more is good, 50 to 89 needs improvement and under 50 is poor. Passing Core Web Vitals for real users matters more than a perfect lab score.",
+      },
+    ],
+    guides: ["slow-pages", "image-optimization", "javascript-rendering", "mixed-content"],
   },
 ];
 

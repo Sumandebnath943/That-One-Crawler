@@ -5,7 +5,7 @@ import {
   hasContent,
   isNoindex,
   ISSUES,
-  scorePage,
+  scoreFromIssues,
   sortIssues,
   type BrokenOutlink,
   type IssueCode,
@@ -13,7 +13,7 @@ import {
   type PageRow,
   type RowContext,
 } from "./issues";
-import { assignPrimaryKeywords, keywordKey } from "./keywords";
+import { assignPrimaryKeywords, isHubPage, isUtilityPage, keywordKey } from "./keywords";
 import type { CrawledPage, LinkCheck, Severity } from "./types";
 import { urlKey } from "./url";
 
@@ -87,16 +87,17 @@ export function buildRows(pages: CrawledPage[], ctx: BuildContext = { asOf: Date
 
     const brokenOutlinks: BrokenOutlink[] = [];
     if (content) {
+      const fromCheck = (url: string, kind: LinkKind): BrokenOutlink => ({ url, status: checks[url].status, kind, note: checks[url].note });
       for (const link of page.outlinksInternal) {
         const target = byKey.get(urlKey(link));
         if (target && (target.status === 0 || target.status >= 400)) brokenOutlinks.push({ url: link, status: target.status, kind: "internal" });
-        else if (!target && checks[link]?.state === "broken") brokenOutlinks.push({ url: link, status: checks[link].status, kind: "internal" });
+        else if (!target && checks[link]?.state === "broken") brokenOutlinks.push(fromCheck(link, "internal"));
       }
       for (const link of page.outlinksExternal) {
-        if (checks[link]?.state === "broken") brokenOutlinks.push({ url: link, status: checks[link].status, kind: "external" });
+        if (checks[link]?.state === "broken") brokenOutlinks.push(fromCheck(link, "external"));
       }
       for (const src of page.imageSrcs) {
-        if (checks[src]?.state === "broken") brokenOutlinks.push({ url: src, status: checks[src].status, kind: "image" });
+        if (checks[src]?.state === "broken") brokenOutlinks.push(fromCheck(src, "image"));
       }
     }
 
@@ -125,28 +126,40 @@ export function buildRows(pages: CrawledPage[], ctx: BuildContext = { asOf: Date
       monthsSinceUpdate,
       isPost,
     };
-    return { ...facts, score: scorePage(page), aiScore: aiReadinessScore(page), issues: findIssues(facts, ctx) };
+    return { ...facts, score: null, aiScore: aiReadinessScore(page), issues: findIssues(facts, ctx) };
   });
 
-  // Cross-page checks: duplicate titles/descriptions and keyword cannibalization.
-  const indexable = (row: PageRow) => row.hasContent && !isNoindex(row) && !row.issues.some((i) => i.code === "canonical-mismatch");
+  // Cross-page checks: duplicate titles/descriptions and keyword cannibalization. A page only
+  // competes for a keyword it targets in its title plus its H1 or URL. Category and tag hubs are
+  // meant to share their posts' keywords; the homepage ranks for the brand; contact and legal pages
+  // aren't written to rank for a topic. None of those count.
+  const indexable = (row: PageRow) =>
+    row.hasContent && !isNoindex(row) && !row.issues.some((i) => i.code === "canonical-mismatch" || i.code === "soft-404");
+  const startKey = ctx.startUrl ? urlKey(ctx.startUrl) : "";
+  const targets = (row: PageRow) => {
+    const k = row.primaryKeyword;
+    if (!k || !indexable(row) || !k.title || !(k.h1 || k.url)) return "";
+    if (urlKey(row.finalUrl) === startKey || isHubPage(row.finalUrl, row.schemaTypes) || isUtilityPage(row.finalUrl)) return "";
+    return keywordKey(k.phrase);
+  };
   const titleCounts = countBy(rows, (r) => (r.hasContent ? r.title.trim().toLowerCase() : ""));
   const metaCounts = countBy(rows, (r) => (r.hasContent ? r.metaDescription.trim().toLowerCase() : ""));
-  const keywordCounts = countBy(rows, (r) => (indexable(r) && r.primaryKeyword ? keywordKey(r.primaryKeyword.phrase) : ""));
+  const keywordCounts = countBy(rows, targets);
 
   for (const row of rows) {
-    if (!row.hasContent) continue;
-    const titleKey = row.title.trim().toLowerCase();
-    const metaKey = row.metaDescription.trim().toLowerCase();
-    const titleDupes = titleKey ? titleCounts.get(titleKey) ?? 0 : 0;
-    const metaDupes = metaKey ? metaCounts.get(metaKey) ?? 0 : 0;
-    if (titleDupes > 1) row.issues.push({ code: "duplicate-title", detail: `(${titleDupes} pages)` });
-    if (metaDupes > 1) row.issues.push({ code: "duplicate-meta", detail: `(${metaDupes} pages)` });
-    if (indexable(row) && row.primaryKeyword) {
-      const competitors = keywordCounts.get(keywordKey(row.primaryKeyword.phrase)) ?? 0;
-      if (competitors > 1) row.issues.push({ code: "cannibalization", detail: `("${row.primaryKeyword.phrase}" · ${competitors} pages)` });
+    if (row.hasContent) {
+      const titleKey = row.title.trim().toLowerCase();
+      const metaKey = row.metaDescription.trim().toLowerCase();
+      const titleDupes = titleKey ? titleCounts.get(titleKey) ?? 0 : 0;
+      const metaDupes = metaKey ? metaCounts.get(metaKey) ?? 0 : 0;
+      if (titleDupes > 1) row.issues.push({ code: "duplicate-title", detail: `(${titleDupes} pages)` });
+      if (metaDupes > 1) row.issues.push({ code: "duplicate-meta", detail: `(${metaDupes} pages)` });
+      const keyword = targets(row);
+      const competitors = keyword ? keywordCounts.get(keyword) ?? 0 : 0;
+      if (competitors > 1) row.issues.push({ code: "cannibalization", detail: `("${row.primaryKeyword!.phrase}" · ${competitors} pages)` });
+      row.issues = sortIssues(row.issues);
     }
-    row.issues = sortIssues(row.issues);
+    row.score = scoreFromIssues(row, row.issues);
   }
   return rows;
 }
@@ -202,6 +215,25 @@ export interface BrokenTarget {
   status: number;
   kind: LinkKind;
   linkedFrom: string[];
+  /** Why it's broken, when the status code alone doesn't say. */
+  note?: string;
+}
+
+/** Hosts that answer 404 to anyone who can't see a private page, so "broken" may mean "private". */
+const PRIVATE_404_HOSTS = /^(?:www\.)?(?:github\.com|gitlab\.com|bitbucket\.org|huggingface\.co|notion\.so|docs\.google\.com|drive\.google\.com)$/i;
+
+/** A plain-words hint for broken links whose cause isn't obvious from the status code. */
+export function brokenHint(url: string, status: number, note?: string): string | undefined {
+  if (note) return note;
+  try {
+    const host = new URL(url).hostname;
+    if (status === 404 && PRIVATE_404_HOSTS.test(host)) {
+      return `${host.replace(/^www\./, "")} shows a 404 to anyone without access, so a private repo or doc looks deleted to visitors. Check it in a private window.`;
+    }
+  } catch {
+    // Not a URL we can read; no hint.
+  }
+  return undefined;
 }
 
 /** Every broken link or image, with the pages that use it. */
@@ -214,6 +246,7 @@ export function brokenLinkReport(rows: PageRow[]): BrokenTarget[] {
         status: link.status,
         kind: link.kind,
         linkedFrom: [],
+        note: brokenHint(link.url, link.status, link.note),
       };
       if (!entry.linkedFrom.includes(row.finalUrl)) entry.linkedFrom.push(row.finalUrl);
       targets.set(link.url, entry);

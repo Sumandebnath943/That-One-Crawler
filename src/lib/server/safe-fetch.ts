@@ -76,6 +76,8 @@ export interface FetchOptions {
   maxBytes?: number;
   maxRedirects?: number;
   accept?: string;
+  /** Only the agent-readiness check sets this, to see whether a site turns AI agents away. */
+  userAgent?: string;
   signal?: AbortSignal;
   /** HEAD skips downloading the body (used by the link checker). */
   method?: "GET" | "HEAD";
@@ -92,6 +94,8 @@ export interface FetchResult {
   sizeBytes: number;
   truncated: boolean;
   timeMs: number;
+  /** Until the final response's headers arrived (redirects included), like a browser's TTFB. */
+  ttfbMs: number;
   error?: string;
 }
 
@@ -158,6 +162,7 @@ export async function safeFetch(url: string, opts: FetchOptions = {}): Promise<F
   const signal = opts.signal ? AbortSignal.any([timeout, opts.signal]) : timeout;
   const redirects: RedirectHop[] = [];
   let current = url;
+  let ttfbMs = 0;
 
   const result = (partial: Partial<FetchResult>): FetchResult => ({
     requestedUrl: url,
@@ -169,6 +174,7 @@ export async function safeFetch(url: string, opts: FetchOptions = {}): Promise<F
     sizeBytes: 0,
     truncated: false,
     timeMs: Math.round(performance.now() - started),
+    ttfbMs,
     ...partial,
   });
 
@@ -181,11 +187,12 @@ export async function safeFetch(url: string, opts: FetchOptions = {}): Promise<F
         redirect: "manual",
         signal,
         headers: {
-          "User-Agent": USER_AGENT,
+          "User-Agent": opts.userAgent ?? USER_AGENT,
           Accept: opts.accept ?? "text/html,application/xhtml+xml;q=0.9,*/*;q=0.8",
           "Accept-Language": "en-US,en;q=0.8",
         },
       });
+      ttfbMs = Math.round(performance.now() - started);
 
       const location = res.headers.get("location");
       if (res.status >= 300 && res.status < 400 && location) {

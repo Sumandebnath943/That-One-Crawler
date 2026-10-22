@@ -3,12 +3,15 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { downloadCsv } from "@/lib/client/csv";
 import { toast } from "@/lib/client/quirks";
+import { agentGrade } from "@/lib/seo/agents";
 import { ISSUES, SEVERITY_ORDER, type IssueCode, type PageRow } from "@/lib/seo/issues";
+import type { PromptContext, PromptItem } from "@/lib/seo/prompt";
 import { verdictFor, type ReportSummary } from "@/lib/seo/report";
 import { urlKey } from "@/lib/seo/url";
 import { Mascot, type Mood } from "../Mascot";
 import { ScoreRing } from "./bits";
 import { COLUMN_GROUPS, COLUMNS, issueWeight, type ColumnGroup } from "./columns";
+import { PromptButton } from "./PromptDialog";
 
 const PAGE_SIZE = 50;
 
@@ -77,11 +80,19 @@ export function Verdict({
   running,
   method,
   durationMs,
+  agentScore,
+  speedScore,
+  prompt,
 }: {
   summary: ReportSummary;
   running: boolean;
   method: string | null;
   durationMs: number | null;
+  /** Site-level AI agent readiness; undefined when it wasn't checked, null while it runs. */
+  agentScore?: number | null;
+  /** Average PageSpeed performance across the pages tested, when PageSpeed ran. */
+  speedScore?: number | null;
+  prompt?: { context: PromptContext; items: PromptItem[] };
 }) {
   const verdict = verdictFor(summary.avgScore);
   const { critical, warning, notice } = summary.severityCounts;
@@ -92,10 +103,14 @@ export function Verdict({
     [notice === 1 ? "notice" : "notices", notice, "bg-note"],
   ];
   return (
-    <section className="grid gap-6 rounded-2xl border-2 border-ink bg-card p-5 shadow-brutal sm:p-6 md:grid-cols-[auto_minmax(0,1fr)_auto] md:items-center md:gap-8">
-      <div className="flex justify-center gap-6 sm:gap-8">
-        <ScoreRing score={summary.avgScore} label="SEO score" kind="seo" />
-        <ScoreRing score={summary.avgAiScore} label="AI readiness" kind="ai" />
+    <section className="grid gap-6 rounded-2xl border-2 border-ink bg-card p-5 shadow-brutal sm:p-6 lg:grid-cols-[auto_minmax(0,1fr)_auto] lg:items-center lg:gap-8">
+      <div className="flex flex-wrap justify-center gap-5 sm:gap-7">
+        <ScoreRing score={summary.avgScore} label="SEO" kind="seo" />
+        <ScoreRing score={summary.avgAiScore} label="AI search" kind="ai" />
+        {agentScore !== undefined && (
+          <ScoreRing score={agentScore} label="AI agents" kind="agent" grade={agentScore === null ? (running ? "Checking…" : "Not checked") : agentGrade(agentScore)} />
+        )}
+        {speedScore !== undefined && speedScore !== null && <ScoreRing score={speedScore} label="Speed" kind="speed" />}
       </div>
       <div className="min-w-0 text-center md:text-left">
         <p className="text-xs font-bold tracking-wider text-ink-3 uppercase">{running ? "Verdict so far" : "The verdict"}</p>
@@ -119,6 +134,12 @@ export function Verdict({
             .filter(Boolean)
             .join(" · ")}
         </p>
+        {prompt && !running && (
+          <div className="mt-4 flex flex-wrap items-center justify-center gap-3 md:justify-start">
+            <PromptButton context={prompt.context} items={prompt.items} />
+            <span className="text-xs text-ink-3">Every fix, as one prompt for your AI coding agent.</span>
+          </div>
+        )}
       </div>
       <div className="hidden shrink-0 lg:block">
         <Mascot pokeable mood={mood} title={`The crawler looks ${MOOD_WORDS[mood]}`} className="size-24" />
@@ -134,6 +155,7 @@ interface Card {
   tone: "crit" | "warn" | "note";
 }
 
+/** Always shown (a ✓ when clean), so you can see what passed as well as what didn't. */
 const CARDS: Card[] = [
   { filter: "broken", label: "Broken pages", count: (s) => s.issueCounts.broken ?? 0, tone: "crit" },
   {
@@ -158,6 +180,20 @@ const CARDS: Card[] = [
     tone: "note",
   },
 ];
+
+/** Codes the always-shown cards already cover. */
+const CARD_CODES = new Set<string>(["broken", "noindex", "robots-blocked", "no-h1", "broken-links", "no-meta", "thin", "duplicate-title", "cannibalization", "orphan", "stale", "ai-readiness", "redirected", "offsite-redirect"]);
+const MAX_EXTRA_CARDS = 6;
+
+/** The fixed cards for a group plus every other issue of that severity the scan found, most common first. */
+function cardsFor(tone: Card["tone"], severity: keyof ReportSummary["severityCounts"], summary: ReportSummary): Card[] {
+  const extras = (Object.entries(summary.issueCounts) as [IssueCode, number][])
+    .filter(([code, count]) => count > 0 && ISSUES[code].severity === severity && !CARD_CODES.has(code))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, MAX_EXTRA_CARDS)
+    .map(([code]): Card => ({ filter: code, label: ISSUES[code].label, count: (s) => s.issueCounts[code] ?? 0, tone }));
+  return [...CARDS.filter((card) => card.tone === tone), ...extras];
+}
 
 const TONE_TEXT: Record<Card["tone"], string> = { crit: "text-crit", warn: "text-warn", note: "text-note" };
 const TONE_BG: Record<Card["tone"], string> = { crit: "bg-crit", warn: "bg-warn", note: "bg-note" };
@@ -197,7 +233,7 @@ export function IssueOverview({
               </span>
             </div>
             <ul className="p-1.5">
-              {CARDS.filter((card) => card.tone === group.tone).map((card) => {
+              {cardsFor(group.tone, group.severity, summary).map((card) => {
                 const count = card.count(summary);
                 const share = summary.total ? Math.round((count / summary.total) * 100) : 0;
                 const isActive = active === card.filter;
@@ -490,12 +526,14 @@ export function PagesTable({
   );
 }
 
-export type ReportTab = "pages" | "links" | "keywords" | "changes" | "plan";
+export type ReportTab = "pages" | "links" | "keywords" | "agents" | "speed" | "changes" | "plan";
 
 const REPORT_TABS: { id: ReportTab; label: string }[] = [
   { id: "pages", label: "Pages" },
   { id: "links", label: "Links" },
   { id: "keywords", label: "Keywords" },
+  { id: "agents", label: "AI agents" },
+  { id: "speed", label: "Speed" },
   { id: "changes", label: "Changes" },
   { id: "plan", label: "✦ Action plan" },
 ];
@@ -504,11 +542,14 @@ const REPORT_TABS: { id: ReportTab; label: string }[] = [
 export function Report({
   summary,
   counts = {},
+  hidden = [],
   renderTab,
 }: {
   summary: ReportSummary;
   /** Badges on the tabs, e.g. how many broken links the Links tab holds. */
   counts?: Partial<Record<ReportTab, { value: number; tone?: "crit" | "warn" }>>;
+  /** Tabs with nothing to show for this scan (Speed when PageSpeed didn't run). */
+  hidden?: ReportTab[];
   renderTab: (tab: ReportTab, issueFilter: IssueFilter, setIssueFilter: (f: IssueFilter) => void) => ReactNode;
 }) {
   const [tab, setTab] = useState<ReportTab>("pages");
@@ -530,7 +571,7 @@ export function Report({
           aria-label="Report sections"
           className="flex gap-1 overflow-x-auto overflow-y-hidden rounded-2xl border-2 border-ink bg-card p-1 [scrollbar-width:none]"
         >
-          {REPORT_TABS.map((t) => {
+          {REPORT_TABS.filter((t) => !hidden.includes(t.id)).map((t) => {
             const count = counts[t.id];
             const selected = tab === t.id;
             return (

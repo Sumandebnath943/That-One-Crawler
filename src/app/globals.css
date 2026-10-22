@@ -20,6 +20,8 @@
   --good: #1b7a39;
   /* Identity color for the AI-readiness score (the SEO score wears lime). */
   --ai: #7148e8;
+  /* Identity color for the AI agent readiness score. */
+  --agent: #0b7f86;
   --shadow: #1a1712;
   color-scheme: light;
 }
@@ -39,6 +41,7 @@
   --note: #8eaeff;
   --good: #63d68e;
   --ai: #b49bff;
+  --agent: #4fd4d0;
   --shadow: #000000;
   color-scheme: dark;
 }
@@ -58,6 +61,7 @@
   --color-note: var(--note);
   --color-good: var(--good);
   --color-ai: var(--ai);
+  --color-agent: var(--agent);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
   --font-display: var(--font-bricolage);

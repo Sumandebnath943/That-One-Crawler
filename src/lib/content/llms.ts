@@ -12,7 +12,7 @@ export function llmsTxt(): string {
 
 > ${SITE_DESCRIPTION}
 
-${SITE_NAME} is a free, browser-based SEO audit tool for blogs, made by ${AUTHOR.name} (${AUTHOR.url}). Enter a blog URL and it reads the sitemap (or follows links), checks up to 1,000 pages, and reports issues across indexing, titles and meta descriptions, headings, content quality, keywords and cannibalization, internal links and broken links, images, structured data, speed, and AI search readiness (GEO/AEO). Every page gets a 0–100 SEO score and a 0–100 AI-readiness score. Optional AI tools (Groq and Gemini free tiers) rewrite titles, sections, headings, intros and FAQs using only facts from the page. No signup; scans are stored in the visitor's browser.
+${SITE_NAME} is a free, browser-based SEO audit tool for blogs, made by ${AUTHOR.name} (${AUTHOR.url}). Enter a blog URL and it reads the sitemap (or follows links), checks up to 1,000 pages, and reports issues across indexing, titles and meta descriptions, headings, content quality, keywords and cannibalization, internal links and broken links, images, structured data, speed, security, and AI search readiness (GEO/AEO). Every page gets a 0–100 SEO score and a 0–100 AI search readiness score, and the site gets a 0–100 AI agent readiness score from 24 checks (robots.txt for AI agents, firewall walls, Markdown for agents, llms.txt, real 404s, structured identity). The full PageSpeed Insights report is optional. Every finding can be copied as one prompt for an AI coding agent. Optional AI tools (Groq and Gemini free tiers) rewrite titles, sections, headings, intros and FAQs using only facts from the page. No signup; scans are stored in the visitor's browser.
 
 ## Tools
 

@@ -1,16 +1,20 @@
 "use client";
 
 import { MODE_LABEL, type ToolMode } from "@/lib/content/tools";
+import { AgentTool } from "./AgentTool";
 import { BrokenLinkTool } from "./BrokenLinkTool";
 import { CannibalizationTool } from "./CannibalizationTool";
 import { GeoAeoTool } from "./GeoAeoTool";
 import { MetaTagTool } from "./MetaTagTool";
+import { PageSpeedTool } from "./PageSpeedTool";
 
 const TOOL_COMPONENTS = {
   "broken-link-checker": BrokenLinkTool,
   "keyword-cannibalization-checker": CannibalizationTool,
   "geo-aeo-checker": GeoAeoTool,
   "meta-tag-checker": MetaTagTool,
+  "ai-agent-readiness-checker": AgentTool,
+  "page-speed-test": PageSpeedTool,
 } as const;
 
 export type ToolSlug = keyof typeof TOOL_COMPONENTS;

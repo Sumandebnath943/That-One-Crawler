@@ -40,26 +40,33 @@ const GRADE_CHIP = {
   none: "bg-sunk text-ink-3",
 };
 
+export type ScoreKind = "seo" | "ai" | "agent" | "speed";
+
+const KIND_COLOR: Record<ScoreKind, string> = { seo: "var(--lime)", ai: "var(--ai)", agent: "var(--agent)", speed: "var(--note)" };
+
 /**
- * A score out of 100 as an outlined ring. Each score has its own color (SEO wears lime, AI readiness
- * violet) so the two never blur together; the grade chip underneath carries good/bad.
+ * A score out of 100 as an outlined ring. Each score has its own color (SEO wears lime, AI search
+ * violet, AI agents teal, speed blue) so they never blur together; the grade chip carries good/bad.
  */
 export function ScoreRing({
   score,
   label,
   kind = "seo",
   size = "md",
+  grade,
 }: {
   score: number | null;
   label: string;
-  kind?: "seo" | "ai";
+  kind?: ScoreKind;
   size?: "sm" | "md" | "lg";
+  /** Overrides the default Excellent/Good/Fair wording. */
+  grade?: string;
 }) {
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
   const value = Math.max(0, Math.min(100, score ?? 0));
   const offset = circumference * (1 - value / 100);
-  const color = kind === "ai" ? "var(--ai)" : "var(--lime)";
+  const color = KIND_COLOR[kind];
   const box = size === "lg" ? "size-36" : size === "sm" ? "size-20" : "size-28";
   const number = size === "lg" ? "text-4xl" : size === "sm" ? "text-xl" : "text-3xl";
   return (
@@ -109,7 +116,7 @@ export function ScoreRing({
           <span aria-hidden className="size-2.5 rounded-full border border-ink" style={{ background: color }} />
           {label}
         </span>
-        <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${GRADE_CHIP[scoreTone(score)]}`}>{gradeFor(score)}</span>
+        <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${GRADE_CHIP[scoreTone(score)]}`}>{grade ?? gradeFor(score)}</span>
       </figcaption>
     </figure>
   );

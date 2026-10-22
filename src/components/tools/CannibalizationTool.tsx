@@ -4,11 +4,13 @@ import { useMemo, useState } from "react";
 import { contextFor, isRunning } from "@/lib/client/crawl";
 import { toast } from "@/lib/client/quirks";
 import { csvCell, downloadText } from "@/lib/client/tools";
-import type { PageRow } from "@/lib/seo/issues";
+import { ISSUES, type PageRow } from "@/lib/seo/issues";
+import { issuePromptItems } from "@/lib/seo/prompt";
 import { buildRows, cannibalizationReport } from "@/lib/seo/report";
 import { displayPath } from "@/lib/seo/url";
 import { ScoreBadge } from "../scan/bits";
 import { ProgressPanel } from "../scan/ProgressPanel";
+import { PromptButton } from "../scan/PromptDialog";
 import { FullAuditLinks, ResultBlock, StatGrid, StatTile, ToolError, ToolForm } from "./kit";
 import { useSiteScan } from "./use-site-scan";
 
@@ -45,7 +47,8 @@ export function CannibalizationTool({ action, placeholder }: { action: string; p
     const groups = cannibalizationReport(rows).map((g) => ({ keyword: g.keyword, pages: strongest(g.pages) }));
     const mapped = content.filter((r) => r.primaryKeyword).sort((a, b) => a.primaryKeyword!.phrase.localeCompare(b.primaryKeyword!.phrase));
     const stuffed = content.filter((r) => r.issues.some((i) => i.code === "keyword-stuffing"));
-    return { content, groups, mapped, stuffed, affected: groups.reduce((n, g) => n + g.pages.length, 0) };
+    const prompt = issuePromptItems(rows).filter((i) => i.code && ISSUES[i.code].category === "Keywords");
+    return { content, groups, mapped, stuffed, prompt, affected: groups.reduce((n, g) => n + g.pages.length, 0) };
   }, [scan]);
 
   const filtered = useMemo(() => {
@@ -75,7 +78,7 @@ export function CannibalizationTool({ action, placeholder }: { action: string; p
         pages
         onSubmit={(url, maxPages) => {
           setQuery("");
-          start({ url, maxPages, pagespeed: false, checkLinks: false, brandRules: null });
+          start({ url, maxPages, pagespeed: false, checkLinks: false, brandRules: null, agents: false });
         }}
       />
       {scan && running && <ProgressPanel scan={scan} onStop={stop} />}
@@ -94,8 +97,14 @@ export function CannibalizationTool({ action, placeholder }: { action: string; p
             title={results.groups.length ? `Competing posts · ${results.groups.length} groups` : "No keyword cannibalization"}
             note={
               results.groups.length
-                ? "Each group targets the same main keyword. Keep the marked page; merge, redirect or re-angle the rest."
-                : "Every page has its own main keyword. Nothing is fighting itself for a ranking."
+                ? "Each group targets the same main keyword in its title and H1 or URL. Keep the marked page; merge, redirect or re-angle the rest."
+                : "No two pages target the same main keyword. Category pages, the homepage and contact or legal pages are never counted."
+            }
+            aside={
+              <PromptButton
+                items={results.prompt}
+                context={{ site: scan.startUrl, scores: [`${results.groups.length} competing keyword groups`], scope: `a keyword check of ${results.content.length} pages` }}
+              />
             }
           >
             {results.groups.length > 0 && (

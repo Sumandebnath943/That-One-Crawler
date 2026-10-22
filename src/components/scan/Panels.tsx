@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { QuotaError, runAi } from "@/lib/client/ai";
+import { postJson } from "@/lib/client/api";
 import { contextFor, type ScanState } from "@/lib/client/crawl";
 import { loadScan, previousScans, type ScanSummary } from "@/lib/client/history";
+import type { AgentReport } from "@/lib/seo/agents";
 import { DEEP_CLICKS, ISSUES, issueText, type LinkKind, type PageRow } from "@/lib/seo/issues";
 import {
   brokenLinkReport,
@@ -12,10 +14,12 @@ import {
   compareRows,
   type ReportSummary,
 } from "@/lib/seo/report";
-import type { AiPlan, AiResult } from "@/lib/seo/types";
+import type { AiPlan, AiResult, PageSpeedCategoryId } from "@/lib/seo/types";
 import { displayPath, urlKey } from "@/lib/seo/url";
+import { AgentPanel } from "./AgentPanel";
 import { AiQuotaBar, GuardNotes } from "./ai-ui";
-import { StatusBadge } from "./bits";
+import { MetricBadge, ScoreRing, StatusBadge } from "./bits";
+import { FieldPanel } from "./PageSpeedView";
 
 function Panel({ children }: { children: ReactNode }) {
   return <div className="space-y-8 rounded-2xl border-2 border-ink bg-card p-4 shadow-brutal sm:p-6">{children}</div>;
@@ -94,6 +98,7 @@ export function LinksPanel({ rows, scan, onOpen }: { rows: PageRow[]; scan: Scan
                       <span className={`mt-1 block w-fit rounded-full px-2 py-0.5 text-[11px] font-bold capitalize ${KIND_CHIP[target.kind]}`}>
                         {target.kind}
                       </span>
+                      {target.note && <span className="mt-1 block text-xs text-ink-2">{target.note}</span>}
                     </td>
                     <td className="px-3 py-2.5">
                       <div className="flex max-w-60 flex-col gap-0.5">
@@ -115,7 +120,11 @@ export function LinksPanel({ rows, scan, onOpen }: { rows: PageRow[]; scan: Scan
 
       <Block
         title={`Orphan pages · ${orphans.length}`}
-        note={complete ? "Pages in your sitemap that no other page links to." : "Orphans can only be called after a full sitemap scan (no page limit hit, nothing stopped early)."}
+        note={
+          complete
+            ? "Pages in your sitemap that no other page links to in its HTML. Links that only appear after a click or from a script (dropdown menus, search, command palettes) don't count."
+            : "Orphans can only be called after a full sitemap scan (no page limit hit, nothing stopped early)."
+        }
       >
         {orphans.length ? (
           <ul className="grid gap-1 sm:grid-cols-2">
@@ -266,6 +275,193 @@ export function KeywordsPanel({ rows, onOpen }: { rows: PageRow[]; onOpen: (key:
             </tbody>
           </table>
         </div>
+      </Block>
+    </Panel>
+  );
+}
+
+// ---------------------------------------------------------------- AI agents
+
+export function AgentsTabPanel({
+  scan,
+  report,
+  onReport,
+}: {
+  scan: ScanState;
+  /** The scan's agent report with the crawl's evidence merged in. */
+  report: AgentReport | null;
+  onReport: (report: AgentReport) => void;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const run = async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      onReport(await postJson<AgentReport>("/api/agents", { url: scan.startUrl }, undefined, 1));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "The agent check failed.");
+    } finally {
+      setBusy(false);
+    }
+  };
+  const button = (
+    <button
+      type="button"
+      onClick={run}
+      disabled={busy}
+      className="rounded-xl border-2 border-ink bg-lime px-4 py-2 font-display font-extrabold text-lime-ink transition hover:-translate-y-0.5 hover:shadow-brutal-sm disabled:opacity-60"
+    >
+      {busy ? "Checking agent access… (about 15s)" : report ? "Check again" : "Check AI agent access"}
+    </button>
+  );
+
+  if (!report) {
+    return (
+      <Panel>
+        <Block
+          title="AI agent readiness"
+          note="Whether ChatGPT, Claude and Perplexity can reach the site, read it without a browser and find their way around: robots.txt, firewalls, Markdown, llms.txt, real 404s, structured identity and more."
+        >
+          {scan.phase === "agents" || (busy && !error) ? (
+            <p className="animate-pulse text-sm text-ink-2">Knocking on the door as ChatGPT, Claude and Perplexity…</p>
+          ) : (
+            <>
+              {(error ?? scan.agentsError) && <p className="rounded-lg bg-crit/10 p-2 text-sm font-semibold text-crit">{error ?? scan.agentsError}</p>}
+              {!scan.agentsError && !error && <p className="text-sm text-ink-3">This scan was saved before the agent check existed.</p>}
+              {button}
+            </>
+          )}
+        </Block>
+      </Panel>
+    );
+  }
+  return (
+    <Panel>
+      <AgentPanel report={report} />
+      <div className="flex flex-wrap items-center gap-3 border-t-2 border-dashed border-line pt-4">
+        {button}
+        <span className="text-xs text-ink-3">Checked {new Date(report.checkedAt).toLocaleString()}.</span>
+        {error && <span className="text-sm font-semibold text-crit">{error}</span>}
+      </div>
+    </Panel>
+  );
+}
+
+// ---------------------------------------------------------------- Speed
+
+const PS_CATEGORIES: [PageSpeedCategoryId, string, (r: PageRow) => number | null | undefined][] = [
+  ["performance", "Performance", (r) => r.pagespeed?.performance],
+  ["accessibility", "Accessibility", (r) => r.pagespeed?.accessibility],
+  ["best-practices", "Best practices", (r) => r.pagespeed?.bestPractices],
+  ["seo", "SEO", (r) => r.pagespeed?.seo],
+];
+
+/** PageSpeed across every tested page: averages, real-user data, and the audits that failed most often. */
+export function SpeedPanel({ rows, onOpen }: { rows: PageRow[]; onOpen: (key: string) => void }) {
+  const tested = rows.filter((r) => r.pagespeed && !r.pagespeed.error);
+  const failedRuns = rows.filter((r) => r.pagespeed?.error).length;
+  const average = (get: (r: PageRow) => number | null | undefined) => {
+    const values = tested.map(get).filter((v): v is number => typeof v === "number");
+    return values.length ? Math.round(values.reduce((a, b) => a + b, 0) / values.length) : null;
+  };
+  const field = tested.find((r) => r.pagespeed?.field?.scope === "origin")?.pagespeed?.field ?? tested.find((r) => r.pagespeed?.field)?.pagespeed?.field;
+  const failedAudits = new Map<string, { title: string; category: PageSpeedCategoryId; pages: string[]; savings: number }>();
+  for (const row of tested) {
+    for (const category of row.pagespeed?.categories ?? []) {
+      for (const audit of category.failed) {
+        const key = `${category.id}:${audit.id}`;
+        const entry = failedAudits.get(key) ?? { title: audit.title, category: category.id, pages: [], savings: 0 };
+        entry.pages.push(row.finalUrl);
+        entry.savings = Math.max(entry.savings, audit.savingsMs ?? 0);
+        failedAudits.set(key, entry);
+      }
+    }
+  }
+  const audits = [...failedAudits.values()].sort((a, b) => b.pages.length - a.pages.length || b.savings - a.savings);
+
+  if (!tested.length) {
+    return (
+      <Panel>
+        <Block title="Speed">
+          <p className="text-sm text-ink-2">
+            {failedRuns ? `PageSpeed failed on all ${failedRuns} pages it tried.` : "PageSpeed didn't run for this scan."} Rescan with “Run PageSpeed” on, or test one
+            page at a time with the free PageSpeed test.
+          </p>
+        </Block>
+      </Panel>
+    );
+  }
+
+  return (
+    <Panel>
+      <Block
+        title={`PageSpeed Insights · ${tested.length} pages`}
+        note="Google's Lighthouse lab test on mobile, averaged across the pages we tested, plus real-user data where Google has it. Open a page for its full report."
+      >
+        <div className="grid grid-cols-2 justify-items-center gap-4 rounded-2xl border-2 border-ink bg-paper p-4 sm:grid-cols-4">
+          {PS_CATEGORIES.map(([id, label, get]) => (
+            <ScoreRing key={id} score={average(get)} label={label} kind="speed" size="sm" />
+          ))}
+        </div>
+        {field && <FieldPanel field={field} />}
+      </Block>
+
+      {audits.length > 0 && (
+        <Block title="Fix these first" note="Lighthouse audits that failed, most widespread first. Savings are Lighthouse's estimate for the worst page.">
+          <ul className="space-y-1.5">
+            {audits.slice(0, 15).map((a) => (
+              <li key={`${a.category}:${a.title}`} className="flex flex-wrap items-center gap-2 rounded-xl border-2 border-line bg-paper px-3 py-2 text-sm">
+                <span className="min-w-0 flex-1 font-semibold">{a.title}</span>
+                <span className="rounded-full bg-sunk px-2 py-0.5 text-[11px] font-bold text-ink-2">{PS_CATEGORIES.find(([id]) => id === a.category)?.[1]}</span>
+                <span className="font-mono text-xs text-ink-3">
+                  {a.pages.length}/{tested.length} pages{a.savings ? ` · −${(a.savings / 1000).toFixed(1)}s` : ""}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Block>
+      )}
+
+      <Block title="Every tested page">
+        <div className="overflow-x-auto rounded-xl border-2 border-ink">
+          <table className="w-full min-w-[40rem] text-left text-sm">
+            <thead>
+              <tr className="border-b-2 border-ink bg-sunk text-xs text-ink-2 uppercase">
+                <th className="px-3 py-2">Page</th>
+                <th className="w-16 px-2 py-2">Perf</th>
+                <th className="w-16 px-2 py-2">A11y</th>
+                <th className="w-16 px-2 py-2">Best pr.</th>
+                <th className="w-16 px-2 py-2">SEO</th>
+                <th className="w-16 px-2 py-2">LCP</th>
+                <th className="w-16 px-2 py-2">CLS</th>
+                <th className="w-16 px-2 py-2">TBT</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...tested]
+                .sort((a, b) => (a.pagespeed?.performance ?? 101) - (b.pagespeed?.performance ?? 101))
+                .map((r) => {
+                  const ps = r.pagespeed!;
+                  return (
+                    <tr key={r.finalUrl} className="border-b border-line last:border-b-0">
+                      <td className="max-w-64 px-3 py-1.5">
+                        <PageLink url={r.finalUrl} onOpen={onOpen} />
+                      </td>
+                      <td className="px-2 py-1.5"><MetricBadge value={ps.performance} good={90} ok={50} /></td>
+                      <td className="px-2 py-1.5"><MetricBadge value={ps.accessibility} good={90} ok={50} /></td>
+                      <td className="px-2 py-1.5"><MetricBadge value={ps.bestPractices} good={90} ok={50} /></td>
+                      <td className="px-2 py-1.5"><MetricBadge value={ps.seo} good={90} ok={50} /></td>
+                      <td className="px-2 py-1.5"><MetricBadge value={ps.lcpSeconds} good={2.5} ok={4} suffix="s" higherIsBetter={false} /></td>
+                      <td className="px-2 py-1.5"><MetricBadge value={ps.cls} good={0.1} ok={0.25} higherIsBetter={false} /></td>
+                      <td className="px-2 py-1.5"><MetricBadge value={ps.tbtMs} good={200} ok={600} suffix="ms" higherIsBetter={false} /></td>
+                    </tr>
+                  );
+                })}
+            </tbody>
+          </table>
+        </div>
+        {failedRuns > 0 && <p className="text-xs text-ink-3">PageSpeed failed on {failedRuns} more pages (quota or a timeout); they aren&apos;t in the averages.</p>}
       </Block>
     </Panel>
   );

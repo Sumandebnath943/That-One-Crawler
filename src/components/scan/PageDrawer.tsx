@@ -12,11 +12,15 @@ import {
   META_MIN,
   readingMinutes,
   TITLE_MAX,
+  TITLE_MAX_PX,
   TITLE_MIN,
   type PageRow,
 } from "@/lib/seo/issues";
+import { titleWidth } from "@/lib/seo/pixels";
+import { brokenHint } from "@/lib/seo/report";
 import type { BrandRules, CrawledPage, CruxMetric, CruxResult, FeatureFlags } from "@/lib/seo/types";
 import { displayPath } from "@/lib/seo/url";
+import { PageSpeedView } from "./PageSpeedView";
 import {
   aiRequestBase,
   AiRunnerError,
@@ -146,7 +150,17 @@ function ContentTab({ row }: { row: PageRow }) {
     <div className="space-y-5">
       <Section title="Search appearance">
         <dl>
-          <Field label="Title" hint={lengthHint(row.title.length, TITLE_MIN, TITLE_MAX)}>
+          <Field
+            label="Title"
+            hint={
+              <>
+                {lengthHint(row.title.length, TITLE_MIN, TITLE_MAX)}{" "}
+                <span className={titleWidth(row.title) > TITLE_MAX_PX ? "font-bold text-warn" : ""}>
+                  · ~{titleWidth(row.title)}px of {TITLE_MAX_PX}px
+                </span>
+              </>
+            }
+          >
             <Value value={row.title} />
           </Field>
           <Field label="Meta description" hint={lengthHint(row.metaDescription.length, META_MIN, META_MAX)}>
@@ -199,24 +213,25 @@ function ContentTab({ row }: { row: PageRow }) {
 
       <Section title={`AI-search readiness · ${row.aiScore ?? "—"}/100`}>
         <p className="mb-3 text-xs text-ink-2">
-          What Google AI Overviews, ChatGPT and Perplexity look for when choosing pages to quote (GEO / AEO).
+          What Google AI Overviews, ChatGPT and Perplexity look for when choosing pages to quote (GEO / AEO). Checks that don&apos;t fit
+          this kind of page are left out of the score.
         </p>
         <ul className="space-y-2">
           {checks.map((check) => (
-            <li key={check.label} className="text-sm">
+            <li key={check.label} className={`text-sm ${check.applies ? "" : "opacity-55"}`}>
               <div className="flex items-center justify-between gap-3">
                 <span className="font-semibold">{check.label}</span>
-                <span className="font-mono text-xs">
-                  {check.earned}/{check.points}
-                </span>
+                <span className="font-mono text-xs">{check.applies ? `${check.earned}/${check.points}` : "doesn't apply"}</span>
               </div>
-              <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-sunk">
-                <div
-                  className={`h-full rounded-full ${check.earned === check.points ? "bg-good" : check.earned ? "bg-warn" : "bg-crit"}`}
-                  style={{ width: `${(check.earned / check.points) * 100}%` }}
-                />
-              </div>
-              {check.earned < check.points && <p className="mt-1 text-xs text-ink-3">{check.tip}</p>}
+              {check.applies && (
+                <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-sunk">
+                  <div
+                    className={`h-full rounded-full ${check.earned === check.points ? "bg-good" : check.earned ? "bg-warn" : "bg-crit"}`}
+                    style={{ width: `${(check.earned / check.points) * 100}%` }}
+                  />
+                </div>
+              )}
+              {check.applies && check.earned < check.points && <p className="mt-1 text-xs text-ink-3">{check.tip}</p>}
             </li>
           ))}
         </ul>
@@ -360,13 +375,17 @@ function SpeedSection({ row, features, onUpdate }: { row: PageRow; features: Fea
   return (
     <Section title="Speed">
       <dl>
-        <Field label="Server response">{row.loadTimeMs} ms</Field>
+        <Field label="Time to first byte" hint={row.ttfbMs ? "from our server, the time until your server starts answering" : "not measured in this older scan"}>
+          {row.ttfbMs ? `${row.ttfbMs} ms` : "—"}
+        </Field>
+        <Field label="HTML download">{row.loadTimeMs} ms</Field>
         <Field label="HTML size">{Math.round(row.sizeBytes / 1024)} KB</Field>
       </dl>
       {features?.pagespeed && (
         <div className="mt-3 space-y-2">
           <p className="text-xs font-bold text-ink-3 uppercase">Lab test (PageSpeed Insights, mobile)</p>
-          {ps && !ps.error && (
+          {ps && !ps.error && ps.categories && <PageSpeedView result={ps} compact />}
+          {ps && !ps.error && !ps.categories && (
             <div className="grid grid-cols-4 gap-2 text-center sm:grid-cols-7">
               {(
                 [
@@ -387,14 +406,24 @@ function SpeedSection({ row, features, onUpdate }: { row: PageRow; features: Fea
             </div>
           )}
           {ps?.error && <p className="text-sm font-semibold text-crit">PageSpeed failed: {ps.error}</p>}
-          <button
-            type="button"
-            onClick={runPs}
-            disabled={busy !== null}
-            className="rounded-lg border-2 border-ink px-3 py-1.5 text-sm font-bold transition hover:bg-lime hover:text-lime-ink disabled:opacity-60"
-          >
-            {busy === "ps" ? "Asking Google… (10–30s)" : ps ? "Run PageSpeed again" : "Run PageSpeed"}
-          </button>
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              onClick={runPs}
+              disabled={busy !== null}
+              className="rounded-lg border-2 border-ink px-3 py-1.5 text-sm font-bold transition hover:bg-lime hover:text-lime-ink disabled:opacity-60"
+            >
+              {busy === "ps" ? "Asking Google… (10–30s)" : ps ? "Run PageSpeed again" : "Run PageSpeed"}
+            </button>
+            <a
+              href={`/page-speed-test?url=${encodeURIComponent(row.finalUrl)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="text-sm font-semibold underline underline-offset-2"
+            >
+              Mobile and desktop test ↗
+            </a>
+          </div>
         </div>
       )}
       {features?.crux && (
@@ -455,14 +484,58 @@ function TechTab({ row, features, onUpdate }: { row: PageRow; features: FeatureF
 
       {row.brokenOutlinks.length > 0 && (
         <Section title={`Broken links on this page · ${row.brokenOutlinks.length}`}>
-          <ul className="space-y-1 font-mono text-xs">
-            {row.brokenOutlinks.map((link) => (
-              <li key={link.url} className="flex gap-2">
-                <StatusBadge status={link.status} />
-                <span className="min-w-0 break-all">{link.url}</span>
+          <ul className="space-y-1.5 font-mono text-xs">
+            {row.brokenOutlinks.map((link) => {
+              const hint = brokenHint(link.url, link.status, link.note);
+              return (
+                <li key={link.url} className="flex gap-2">
+                  <StatusBadge status={link.status} />
+                  <span className="min-w-0 break-all">
+                    {link.url}
+                    {hint && <span className="mt-0.5 block font-sans text-ink-2">{hint}</span>}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        </Section>
+      )}
+
+      {(row.hiddenInstructions.length > 0 || row.injectionSignals.length > 0) && (
+        <Section title="Text aimed at AI assistants">
+          <ul className="space-y-1.5 text-sm">
+            {row.hiddenInstructions.map((text) => (
+              <li key={text} className="rounded-lg bg-crit/10 p-2">
+                <b className="text-crit">Hidden:</b> “{text}”
+              </li>
+            ))}
+            {row.injectionSignals.map((text) => (
+              <li key={text} className="rounded-lg bg-note/10 p-2">
+                <b className="text-note">Visible:</b> “{text}”
               </li>
             ))}
           </ul>
+        </Section>
+      )}
+
+      {(row.insecureResources.length > 0 || row.vagueLinks.length > 0) && (
+        <Section title="Links and files">
+          <dl>
+            {row.vagueLinks.length > 0 && (
+              <Field label="Vague link text" hint={`${row.vagueLinkCount} links`}>
+                {row.vagueLinks.map((t) => `“${t}”`).join(", ")}
+              </Field>
+            )}
+            {row.insecureResources.length > 0 && (
+              <Field label="Loaded over http">
+                {row.insecureResources.map((u) => (
+                  <div key={u} className="font-mono text-xs break-all">
+                    {u}
+                  </div>
+                ))}
+              </Field>
+            )}
+          </dl>
         </Section>
       )}
 
@@ -619,7 +692,7 @@ export function PageDrawer({
                 </a>
                 {row.aiScore !== null && (
                   <span className="rounded-full bg-ai/15 px-2 py-0.5 font-bold text-ai" title="AI search readiness (GEO/AEO)">
-                    AI readiness {row.aiScore}/100
+                    AI search {row.aiScore}/100
                   </span>
                 )}
               </div>
